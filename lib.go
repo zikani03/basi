@@ -36,6 +36,7 @@ var actionMap = map[string]ActionFunc{
 	"GoBack":                0,
 	"GoForward":             0,
 	"Refresh":               0,
+	"Screenshot":            0,
 }
 
 func lexerActionsFromMap() string {
