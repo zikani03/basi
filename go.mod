@@ -1,4 +1,4 @@
-module v4playwrightactionparser
+module github.com/zikani03/pact
 
 go 1.24.1
 

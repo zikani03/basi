@@ -1,4 +1,4 @@
-package v4playwrightactionparser
+package pact
 
 import (
 	"io"

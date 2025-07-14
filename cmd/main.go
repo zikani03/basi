@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	p "v4playwrightactionparser"
+	p "pact"
 )
 
 func main() {
