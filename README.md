@@ -64,7 +64,7 @@ $ ./pact run --file basic.yaml
 Or 
 
 ```sh 
-$ ./pact run --file example-hn.pact --url "https://news.ycombinator.com"
+$ ./pact run --file basic.pact --url "https://news.ycombinator.com"
 ```
 
 ## Available actions
