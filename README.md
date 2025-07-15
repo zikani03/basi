@@ -1,4 +1,19 @@
-# participle lexer/parser for playwright Actions DSL
+# pact
+
+
+## Objectives
+
+- Support YAML and .pact files
+- Generate structured output files for integration into (CLIs, AI Agents, general system integrations/connects)
+- Support 95% of Playwright actions that can be done on programmatic SDKs
+- Support running playwright `--local`, `--docker` and `--remote`
+- Support generating documents from/in-between steps
+- Figure out how to incorporate the playwright test generator
+- Design import capability for code reause
+- Suppor faker and fuzztesting
+- Support variables across the session/tets
+
+## playwright Actions DSL
 
 > NOTE: This is just an experiment for an idea I got while working on a PR for [ovh/venom](https://github.com/ovh/venom/pull/843), YMMV
 
