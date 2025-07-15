@@ -1,0 +1,5 @@
+Goto "/login"
+Fill "input[name=acct]" "throwaway-username" 
+Fill "input[name=pw]" "fakepassword"
+Click "input[value=login]"
+Screenshot "body" "./test-screenshot.png"

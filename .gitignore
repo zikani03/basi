@@ -1,0 +1,6 @@
+pact
+pact.exe
+/dist/
+/build/
+/logs/
+/data/
