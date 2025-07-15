@@ -36,6 +36,7 @@ var actionMap = map[string]ActionFunc{
 	"GoBack":                0,
 	"GoForward":             0,
 	"Refresh":               0,
+	"Screenshot":            0,
 }
 
 func lexerActionsFromMap() string {
@@ -92,7 +93,7 @@ func (Selector) value() {}
 
 type Value interface{ value() }
 
-func DebugParse(r io.Reader) (any, error) {
+func DebugParse(r io.Reader) (*PlaywrightAction, error) {
 	actions, err := parser.Parse("tests.yaml", r)
 	repr.Println(actions, repr.Indent("  "), repr.OmitEmpty(true))
 	if err != nil {
