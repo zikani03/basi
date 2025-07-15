@@ -47,3 +47,29 @@ $ cd pact
 
 $ cat actions.pact | go run ./cmd/main.go
 ```
+
+## IDEAS
+
+```
+[Config]
+  URL: "https://localhost:5173"
+  Headless: true 
+  Device: "Samsung Galaxy"
+
+[Variables]
+  password: "zikani123"
+
+Use "./login.pact"
+
+Fill       "#email" "change@example.com" 
+Fill       "#email" "zikani@example.com" 
+Fill       "#password"  $var(password)
+Screenshot "body" "./test-screenshot.png" 
+Click      "#loginButton" 
+WaitFor    ".second-dashboard-user-name"
+
+Use "./generate-document.pact"
+
+[Assertions]
+  In: ./login-assertions.js
+```

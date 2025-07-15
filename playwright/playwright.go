@@ -7,19 +7,20 @@ import (
 	"net/url"
 	"slices"
 
-	"github.com/mitchellh/mapstructure"
 	playwrightgo "github.com/playwright-community/playwright-go"
 	"github.com/zikani03/pact"
-	"github.com/zikani03/pact/core"
 )
 
 const Name = "playwright"
 
 type Executor struct {
-	URL      string           `json:"url" yaml:"url"`
-	Browser  string           `json:"browser" yaml:"browser"`
-	Actions  []ExecutorAction `json:"actions" yaml:"actions"`
-	Headless bool             `json:"headless" yaml:"headless"`
+	Name        string           `json:"name,omitempty" yaml:"name,omitempty"`
+	Description string           `json:"description,omitempty" yaml:"description,omitempty"`
+	URL         string           `json:"url" yaml:"url"`
+	Browser     string           `json:"browser" yaml:"browser"`
+	Device      string           `json:"device" yaml:"device"`
+	Actions     []ExecutorAction `json:"actions" yaml:"actions"`
+	Headless    bool             `json:"headless" yaml:"headless"`
 }
 
 type ExecutorAction struct {
@@ -78,15 +79,6 @@ func (Executor) ZeroValueResult() interface{} {
 // func (Executor) GetDefaultAssertions() *venom.StepAssertions {
 // 	return &venom.StepAssertions{Assertions: []Assertion{"page.body ShouldNotBeEmpty"}}
 // }
-
-// Run execute TestStep of type playwright
-func (Executor) DecodeAndRun(ctx context.Context, step core.TestStep) (interface{}, error) {
-	var e Executor
-	if err := mapstructure.Decode(step, &e); err != nil {
-		return nil, err
-	}
-	return e.Run(ctx)
-}
 
 // Run execute TestStep of type playwright
 func (e *Executor) Run(ctx context.Context) (interface{}, error) {

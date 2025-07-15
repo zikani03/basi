@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/zikani03/pact"
 	"github.com/zikani03/pact/playwright"
+	"gopkg.in/yaml.v2"
 )
 
 var version string = "0.0.0"
@@ -32,6 +35,7 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 type RunCmd struct {
+	File      string   `help:"file containing the tests"`
 	URL       string   `help:"which url to run the test against"`
 	Remote    bool     `help:"whether to run remote test"`
 	Docker    bool     `help:"whether to run tests inside docker"`
@@ -55,29 +59,53 @@ func CheckIfError(err error) {
 }
 
 func (r *RunCmd) Run(globals *Globals) error {
-	parsedActions, err := pact.Parse(os.Stdin)
+	fileData, err := os.ReadFile(r.File)
 	if err != nil {
 		return err
 	}
+
+	executor := &playwright.Executor{}
 	actions := make([]playwright.ExecutorAction, 0)
-	for _, p := range parsedActions.Actions {
-		actions = append(actions, *playwright.NewExecutorAction(p))
+
+	if strings.HasSuffix(r.File, ".pact") {
+		parsedActions, err := pact.Parse(bytes.NewBuffer(fileData))
+		if err != nil {
+			return err
+		}
+
+		for _, p := range parsedActions.Actions {
+			actions = append(actions, *playwright.NewExecutorAction(p))
+		}
+
+		executor = &playwright.Executor{
+			URL:      r.URL,
+			Browser:  globals.Browser,
+			Actions:  actions,
+			Headless: globals.Headless,
+		}
+		slog.Debug("running the executor", "url", executor.URL)
+		res, err := executor.Run(context.Background())
+		if err != nil {
+			return err
+		}
+		slog.Info("executed sucessfully", "result", res)
+		return nil
 	}
 
-	executor := &playwright.Executor{
-		URL:      r.URL,
-		Browser:  globals.Browser,
-		Actions:  actions,
-		Headless: globals.Headless,
+	if strings.HasSuffix(r.File, ".yaml") || strings.HasSuffix(r.File, ".yml") {
+		if err := yaml.Unmarshal(fileData, executor); err != nil {
+			return fmt.Errorf("unable to parse step got: %v", err)
+		}
+		slog.Debug("running the executor", "url", executor.URL)
+		res, err := executor.Run(context.Background())
+		if err != nil {
+			return err
+		}
+		slog.Info("executed sucessfully", "result", res)
+		return nil
 	}
 
-	slog.Debug("running the executor", "url", executor.URL)
-	res, err := executor.Run(context.Background())
-	if err != nil {
-		return err
-	}
-	slog.Info("executed sucessfully", "result", res)
-	return nil
+	return fmt.Errorf("failed to run, invalid file specified: %s", r.File)
 }
 
 type CLI struct {
