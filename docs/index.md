@@ -15,20 +15,18 @@ Some notes about pact
 - Support running playwright `--local`, `--docker` and `--remote`
 - Support generating documents from/in-between steps
 - Figure out how to incorporate the playwright test generator
-- Design import capability for code reause
+- Design import capability for code reuse
 - Suppor faker and fuzztesting
-- Support variables across the session/tets
+- Support variables across the session/tests
 
-## playwright Actions DSL
+## playwright Actions DSL (`.pact` file)
 
 Playwright Actions (PACT) is a small DSL (domain specific language) for interacting with [playwright](https://playwright.dev).
 
-It allows users to perform actions via Playwright without having to use 
-actual programmatic SDKs or syntax - opening Playwright up to less technical
-users and faster authoring of end to end UI tests.
+It allows users to perform actions via Playwright without having to use  actual programmatic SDKs or syntax - opening Playwright up to less technical users and faster authoring of end to end UI tests.
+Each action is specified on its own line.
 
-This repository implements a basic Lexer and Parser for PACT using [participle](https://github.com/alecthomas/participle). Each action is specified on its own line.
-
+The Lexer and Parser for PACT is implemented using [participle](https://github.com/alecthomas/participle). 
 
 ## IDEAS
 

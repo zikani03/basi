@@ -19,7 +19,6 @@ var version string = "0.0.0"
 type Globals struct {
 	Headless bool        `help:"Run in headless mode or not"`
 	Browser  string      `help:"Browser to use for the tests, defaults to chromuium"`
-	Config   string      `help:"Location of configuration file" default:"monorepo.toml" type:"path"`
 	Debug    bool        `help:"Enable debug mode"`
 	Version  VersionFlag `name:"version" help:"Show version and quit"`
 }
@@ -35,13 +34,12 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 type RunCmd struct {
-	File      string   `help:"file containing the tests"`
-	URL       string   `help:"which url to run the test against"`
-	Remote    bool     `help:"whether to run remote test"`
-	Docker    bool     `help:"whether to run tests inside docker"`
-	Local     bool     `help:"whether to install playwright locally and run tests"`
-	OutputDir string   `help:"Where to write test output and screenshots"`
-	Sources   []string `help:"Source repositories with support for 'git-down' shortcuts"`
+	File      string `short:"f" help:"file containing the tests"`
+	URL       string `short:"u" help:"which url to run the test against"`
+	Remote    bool   `help:"whether to run remote test"`
+	Docker    bool   `help:"whether to run tests inside docker"`
+	Local     bool   `help:"whether to install playwright locally and run tests"`
+	OutputDir string `short:"o" help:"Where to write test output and screenshots"`
 }
 
 type TestCmd struct {
@@ -68,7 +66,7 @@ func (r *RunCmd) Run(globals *Globals) error {
 	actions := make([]playwright.ExecutorAction, 0)
 
 	if strings.HasSuffix(r.File, ".pact") {
-		parsedActions, err := pact.Parse(bytes.NewBuffer(fileData))
+		parsedActions, err := pact.Parse(r.File, bytes.NewBuffer(fileData))
 		if err != nil {
 			return err
 		}

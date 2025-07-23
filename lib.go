@@ -22,13 +22,13 @@ var actionMap = map[string]ActionFunc{
 	"Fill":                  0,
 	"Check":                 0,
 	"Uncheck":               0,
-	"FillCheckbox":          0, // alias for Check
+	"FillCheckbox":          0,
 	"Press":                 0,
 	"PressSequentially":     0,
-	"Select":                0, // alias for SelectOption
+	"Select":                0,
 	"SelectOption":          0,
 	"SelectMultipleOptions": 0,
-	"Type":                  0, // alias for PressSequentially
+	"Type":                  0,
 	"WaitFor":               0,
 	"WaitForSelector":       0,
 	"WaitForURL":            0,
@@ -37,6 +37,10 @@ var actionMap = map[string]ActionFunc{
 	"GoForward":             0,
 	"Refresh":               0,
 	"Screenshot":            0,
+	"Upload":                0,
+	"UploadFile":            0,
+	"UploadFiles":           0,
+	"UploadMultipleFiles":   0,
 }
 
 func lexerActionsFromMap() string {
@@ -93,8 +97,8 @@ func (Selector) value() {}
 
 type Value interface{ value() }
 
-func DebugParse(r io.Reader) (*PlaywrightAction, error) {
-	actions, err := parser.Parse("tests.yaml", r)
+func DebugParse(filename string, r io.Reader) (*PlaywrightAction, error) {
+	actions, err := parser.Parse(filename, r)
 	repr.Println(actions, repr.Indent("  "), repr.OmitEmpty(true))
 	if err != nil {
 		return nil, err
@@ -102,8 +106,8 @@ func DebugParse(r io.Reader) (*PlaywrightAction, error) {
 	return actions, nil
 }
 
-func Parse(r io.Reader) (*PlaywrightAction, error) {
-	actions, err := parser.Parse("tests.yaml", r)
+func Parse(filename string, r io.Reader) (*PlaywrightAction, error) {
+	actions, err := parser.Parse(filename, r)
 	if err != nil {
 		return nil, err
 	}

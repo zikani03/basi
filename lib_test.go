@@ -38,7 +38,7 @@ func TestParseFail(t *testing.T) {
 	}
 
 	for _, content := range cases {
-		_, err := Parse(strings.NewReader(content))
+		_, err := Parse("test.yaml", strings.NewReader(content))
 		if err == nil {
 			t.Errorf("expected case to fail with content: %s", content)
 		}
