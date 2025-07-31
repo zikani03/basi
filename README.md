@@ -1,32 +1,32 @@
-# pact
+# basi
 
-`pact` allow users and developers to author and run Playwright actions using a simple
+`basi` allow users and developers to author and run Playwright actions using a simple
 configuration file with less code. 
 
-`pact` supports writing playwright actions as either `.yaml` or `.pact` files. The goal
-is for the .pact file DSL to be simple enough to hand over to non-technical users.
+`basi` supports writing playwright actions as either `.yaml` or `.basi` files. The goal
+is for the .basi file DSL to be simple enough to hand over to non-technical users.
 
-> NOTE: `pact` is still in very early development. There are no guarantees about API or feature stability.
+> NOTE: `basi` is still in very early development. There are no guarantees about API or feature stability.
 
 ## Building 
 
 ```sh
-$ git clone https://github.com/zikani03/pact
+$ git clone https://github.com/zikani03/basi
 
-$ cd pact
+$ cd basi
 
-$ go build -o pact ./cmd/main.go
+$ go build -o basi ./cmd/main.go
 
-$ ./pact --help
+$ ./basi --help
 
 # Test with the example file in the repo
 
-$ ./pact run --file example-hn.pact --url "https://news.ycombinator.com"
+$ ./basi run example-hn.basi --url "https://news.ycombinator.com"
 ```
 
 ## Example usage
 
-> NOTE: the `pact` depends on Playwright and as a result, will
+> NOTE: the `basi` depends on Playwright and as a result, will
 > attempt to install playwright if it is not already installed.
 > you will notice this the first time you run the test/files
 
@@ -35,17 +35,17 @@ Create a file named `basic.yaml`
 ```yaml
 name: Try to login to HackerNews
 description: Test login to hacker news
-url: htts://news.ycombinator.com
-headless: true
+url: https://news.ycombinator.com
+headless: false
 actions:
-  - { action: Goto,       content: "/login" }
+  - { action: Goto,       selector: "/login" }
   - { action: Fill,       selector: "input[name=acct]", content: "throwaway-user" }
   - { action: Fill,       selector: "input[name=pw]", content:  "fakepassword" }
   - { action: Click,      selector: "input[value=login]" }
   - { action: Screenshot, selector: "body", content: "./test-screenshot.png" }
 ```
 
-The equivalent `basic.pact` file can be authored like this
+The equivalent `basic.basi` file can be authored like this
 
 ```
 Goto "/login"
@@ -55,16 +55,16 @@ Click "input[value=login]"
 Screenshot "body" "./test-screenshot.png"
 ```
 
-You can now run the file using pact, like so:
+You can now run the file using basi, like so:
 
 ```sh 
-$ ./pact run --file basic.yaml
+$ ./basi run basic.yaml
 ```
 
 Or 
 
 ```sh 
-$ ./pact run --file basic.pact --url "https://news.ycombinator.com"
+$ ./basi run basic.basi --url "https://news.ycombinator.com"
 ```
 
 ## Available actions

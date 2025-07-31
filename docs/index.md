@@ -1,6 +1,6 @@
-# pact
+# basi
 
-Some notes about pact
+Some notes about basi
 
 - It implements a DSL 
 - It uses [playwright-go](https://github.com/playwright-community/playwright-go) under the hood.
@@ -8,7 +8,7 @@ Some notes about pact
 
 ## Objectives
 
-- Support YAML and .pact files
+- Support YAML and .basi files
 - Support Assertions for full end-to-end testing flow
 - Generate structured output files for integration into (CLIs, AI Agents, general system integrations/connects)
 - Support 95% of Playwright actions that can be done on programmatic SDKs
@@ -19,14 +19,14 @@ Some notes about pact
 - Suppor faker and fuzztesting
 - Support variables across the session/tests
 
-## playwright Actions DSL (`.pact` file)
+## Playwright Actions DSL (`.basi` file)
 
-Playwright Actions (PACT) is a small DSL (domain specific language) for interacting with [playwright](https://playwright.dev).
+The project implements a DSL (domain specific language) for interacting with [playwright](https://playwright.dev). The language is called pact, for [historic reasons](#2)
 
 It allows users to perform actions via Playwright without having to use  actual programmatic SDKs or syntax - opening Playwright up to less technical users and faster authoring of end to end UI tests.
 Each action is specified on its own line.
 
-The Lexer and Parser for PACT is implemented using [participle](https://github.com/alecthomas/participle). 
+The Lexer and Parser for the DSL is implemented using [participle](https://github.com/alecthomas/participle). 
 
 ## IDEAS
 
@@ -37,7 +37,7 @@ The Lexer and Parser for PACT is implemented using [participle](https://github.c
   headless: true 
   device: "Samsung Galaxy"
 
-Use "./login.pact"
+Use "./login.basi"
 
 Fill       "#email" "change@example.com" 
 Fill       "#email" "zikani@example.com" 
@@ -46,7 +46,7 @@ Screenshot "body" "./test-screenshot.png"
 Click      "#loginButton" 
 WaitFor    ".second-dashboard-user-name"
 
-Use "./generate-document.pact"
+Use "./generate-document.basi"
 
 [Asserts]
 page body is "something"

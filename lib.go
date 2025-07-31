@@ -1,4 +1,4 @@
-package pact
+package basi
 
 import (
 	"io"

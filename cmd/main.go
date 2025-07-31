@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/zikani03/pact"
-	"github.com/zikani03/pact/playwright"
+	"github.com/zikani03/basi"
+	"github.com/zikani03/basi/playwright"
 	"gopkg.in/yaml.v2"
 )
 
@@ -34,7 +34,8 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 type RunCmd struct {
-	File      string `short:"f" help:"file containing the tests"`
+	File      string `arg:"" help:"filename for file to run"`
+	Directory string `short:"d" help:"directory containing .basi files to be run"`
 	URL       string `short:"u" help:"which url to run the test against"`
 	Remote    bool   `help:"whether to run remote test"`
 	Docker    bool   `help:"whether to run tests inside docker"`
@@ -65,8 +66,8 @@ func (r *RunCmd) Run(globals *Globals) error {
 	executor := &playwright.Executor{}
 	actions := make([]playwright.ExecutorAction, 0)
 
-	if strings.HasSuffix(r.File, ".pact") {
-		parsedActions, err := pact.Parse(r.File, bytes.NewBuffer(fileData))
+	if strings.HasSuffix(r.File, ".basi") {
+		parsedActions, err := basi.Parse(r.File, bytes.NewBuffer(fileData))
 		if err != nil {
 			return err
 		}
@@ -81,35 +82,28 @@ func (r *RunCmd) Run(globals *Globals) error {
 			Actions:  actions,
 			Headless: globals.Headless,
 		}
-		slog.Debug("running the executor", "url", executor.URL)
-		res, err := executor.Run(context.Background())
-		if err != nil {
-			return err
-		}
-		slog.Info("executed sucessfully", "result", res)
-		return nil
-	}
 
-	if strings.HasSuffix(r.File, ".yaml") || strings.HasSuffix(r.File, ".yml") {
+	} else if strings.HasSuffix(r.File, ".yaml") || strings.HasSuffix(r.File, ".yml") {
 		if err := yaml.Unmarshal(fileData, executor); err != nil {
 			return fmt.Errorf("unable to parse step got: %v", err)
 		}
-		slog.Debug("running the executor", "url", executor.URL)
-		res, err := executor.Run(context.Background())
-		if err != nil {
-			return err
-		}
-		slog.Info("executed sucessfully", "result", res)
-		return nil
+
+	} else {
+		return fmt.Errorf("failed to run, invalid file specified: %s", r.File)
 	}
 
-	return fmt.Errorf("failed to run, invalid file specified: %s", r.File)
+	slog.Debug("running the executor", "url", executor.URL)
+	_, err = executor.Run(context.Background())
+	if err != nil {
+		return err
+	}
+	slog.Debug("executed sucessfully")
+	return nil
 }
 
 type CLI struct {
 	Globals
-	Run  RunCmd  `cmd:"" help:"Run tests using pact"`
-	Test TestCmd `cmd:"" help:"Test a configuration or pact file"`
+	Run RunCmd `cmd:"" help:"Run tests using basi"`
 }
 
 func main() {
@@ -120,8 +114,8 @@ func main() {
 	}
 
 	ctx := kong.Parse(&cli,
-		kong.Name("pact"),
-		kong.Description("Run tests using playwright"),
+		kong.Name("basi"),
+		kong.Description("Run tests via playwright"),
 		kong.UsageOnError(),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,

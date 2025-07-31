@@ -8,7 +8,8 @@ import (
 	"slices"
 
 	playwrightgo "github.com/playwright-community/playwright-go"
-	"github.com/zikani03/pact"
+	"github.com/zikani03/basi"
+	"github.com/zikani03/basi/core"
 )
 
 const Name = "playwright"
@@ -21,6 +22,7 @@ type Executor struct {
 	Device      string           `json:"device" yaml:"device"`
 	Actions     []ExecutorAction `json:"actions" yaml:"actions"`
 	Headless    bool             `json:"headless" yaml:"headless"`
+	Assertions  []core.Assertion `json:"assertions,omitempty" yaml:"assertions,omitempty"`
 }
 
 type ExecutorAction struct {
@@ -30,7 +32,7 @@ type ExecutorAction struct {
 	Options  any    `json:"options,omitempty" yaml:"options"` // Options applicable to the given action
 }
 
-func NewExecutorAction(act *pact.Action) *ExecutorAction {
+func NewExecutorAction(act *basi.Action) *ExecutorAction {
 	args := ""
 	if act.Arguments != nil {
 		args = act.Arguments.String
@@ -82,18 +84,13 @@ func (Executor) ZeroValueResult() interface{} {
 
 // Run execute TestStep of type playwright
 func (e *Executor) Run(ctx context.Context) (interface{}, error) {
-	pageURL, err := url.Parse(e.URL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid URL passed to playright executor: %s", e.URL)
-	}
-
 	browsers := make([]string, 0)
 	if e.Browser != "" && slices.Contains[[]string, string]([]string{"chromium", "firefox"}, e.Browser) {
 		browsers = append(browsers, e.Browser)
 	} else {
 		browsers = append(browsers, "chromium")
 	}
-	err = playwrightgo.Install(&playwrightgo.RunOptions{
+	err := playwrightgo.Install(&playwrightgo.RunOptions{
 		Browsers: browsers,
 	})
 	if err != nil {
@@ -119,9 +116,11 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 		return nil, fmt.Errorf("could not create page: %w", err)
 	}
 
-	_, err = page.Goto(e.URL)
-	if err != nil {
-		return nil, fmt.Errorf("could not goto: %w", err)
+	if e.URL != "" {
+		_, err = page.Goto(e.URL)
+		if err != nil {
+			return nil, fmt.Errorf("could not goto: %w", err)
+		}
 	}
 
 	err = performActions(ctx, page, e.Actions)
@@ -143,6 +142,10 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 		return nil, fmt.Errorf("could not stop Playwright: %w", err)
 	}
 
+	pageURL, err := url.Parse(page.URL())
+	if err != nil {
+		slog.Debug("failed to parse page URL from *playwright.Page object", "error", err)
+	}
 	pageResult := &Page{
 		Location: pageURL,
 		Body:     string(pageBodyBytes),
