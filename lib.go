@@ -41,6 +41,11 @@ var actionMap = map[string]ActionFunc{
 	"UploadFile":            0,
 	"UploadFiles":           0,
 	"UploadMultipleFiles":   0,
+	"ExpectText":            0,
+	"ExpectAttr":            0,
+	"ExpectAttribute":       0,
+	"ExpectValue":           0,
+	"ExpectValues":          0,
 }
 
 func lexerActionsFromMap() string {

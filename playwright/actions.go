@@ -13,6 +13,8 @@ import (
 
 type ActionFunc func(page playwrightgo.Page, action *ExecutorAction) error
 
+var SupportedActions = actionMap
+
 var actionMap = map[string]ActionFunc{
 	"Click":                 ClickAction,
 	"DoubleClick":           DoubleClickAction,
@@ -43,6 +45,12 @@ var actionMap = map[string]ActionFunc{
 	"UploadFile":            UploadFileAction,
 	"UploadFiles":           UploadMultipleFilesAction, // alias for UploadMultipleFiles
 	"UploadMultipleFiles":   UploadMultipleFilesAction,
+	// Assertions as actions
+	"ExpectText":      StubExpectAction,
+	"ExpectAttr":      StubExpectAction,
+	"ExpectAttribute": StubExpectAction,
+	"ExpectValue":     StubExpectAction,
+	"ExpectValues":    StubExpectAction,
 }
 
 func castOptions[Dest any](action *ExecutorAction) (dest *Dest, err error) {
