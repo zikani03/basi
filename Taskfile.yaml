@@ -1,0 +1,22 @@
+version: "3"
+
+tasks:
+  # use this like task build-pr -- 10
+  build-pr:
+    - gh pr checkout {{.CLI_ARGS}}
+    - task build
+
+  clean:
+    cmds:
+      - rm -rf ./dist/
+      - mkdir -p build dist
+
+  build:
+    deps: [ clean ]
+    cmds:
+      - go build -ldflags="-X 'basi.Version=$(git describe  --tags --candidates 1)'" -o build/basi ./cmd/main.go
+  
+  install-local:
+    deps: [ build ]
+    cmds:
+      - cp build/basi $HOME/bin/basi

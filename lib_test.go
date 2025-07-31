@@ -1,4 +1,4 @@
-package pact
+package basi
 
 import (
 	"strings"
@@ -18,7 +18,7 @@ Click "GetByRole( \"existent\" )"
 Click    "existent"   "this should be accepted" # "not this"
 	`
 
-	_, err := Parse(strings.NewReader(content))
+	_, err := Parse("test.yaml", strings.NewReader(content))
 	if err != nil {
 		t.Fail()
 	}

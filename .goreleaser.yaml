@@ -1,0 +1,29 @@
+# Goreleaser configuration for git-monorepo
+project_name: git-monorepo
+builds:
+- env:
+  - CGO_ENABLED=0
+  goos:
+    - freebsd
+    - windows
+    - darwin
+    - linux
+  dir: .
+  main: ./cmd/main.go
+archives:
+- replacements:
+    darwin: Darwin
+    linux: Linux
+    windows: Windows
+    386: i386
+    amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'

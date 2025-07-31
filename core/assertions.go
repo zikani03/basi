@@ -14,7 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/zikani03/pact/assertions"
+	"github.com/zikani03/basi/assertions"
 )
 
 type AssertionsApplied struct {

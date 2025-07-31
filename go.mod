@@ -1,4 +1,4 @@
-module github.com/zikani03/pact
+module github.com/zikani03/basi
 
 go 1.24.1
 
