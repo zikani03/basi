@@ -161,7 +161,7 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 
 func performActions(ctx context.Context, page playwrightgo.Page, actions []ExecutorAction) error {
 	assertions := playwrightgo.NewPlaywrightAssertions()
-
+	var lastLocator playwrightgo.Locator
 	for i, action := range actions {
 		if action.Action == "" {
 			return fmt.Errorf("action cannot be empty, please specify an action")
@@ -178,8 +178,19 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 				return fmt.Errorf("cannot start with an Assertion")
 			}
 			prev := actions[i-1]
-			locator := page.Locator(prev.Selector)
-			return performAssertion(assertions, locator, &action)
+
+			locator := lastLocator
+			if strings.HasPrefix(prev.Action, "Expect") == false {
+				locator = page.Locator(prev.Selector)
+			}
+			if locator == nil {
+				return fmt.Errorf("cannot perform assertion without a locator / selector")
+			}
+			err := performAssertion(assertions, locator, &action)
+			if err != nil {
+				return err
+			}
+			lastLocator = locator
 		}
 
 		actionFunc, ok := actionMap[actionName]
