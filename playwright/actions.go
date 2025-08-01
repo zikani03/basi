@@ -13,6 +13,8 @@ import (
 
 type ActionFunc func(page playwrightgo.Page, action *ExecutorAction) error
 
+var SupportedActions = actionMap
+
 var actionMap = map[string]ActionFunc{
 	"Click":                 ClickAction,
 	"DoubleClick":           DoubleClickAction,
@@ -43,6 +45,32 @@ var actionMap = map[string]ActionFunc{
 	"UploadFile":            UploadFileAction,
 	"UploadFiles":           UploadMultipleFilesAction, // alias for UploadMultipleFiles
 	"UploadMultipleFiles":   UploadMultipleFilesAction,
+	// Assertions as actions
+	"ExpectText":                   StubExpectAction,
+	"ExpectAttr":                   StubExpectAction,
+	"ExpectAttribute":              StubExpectAction,
+	"ExpectValue":                  StubExpectAction,
+	"ExpectValues":                 StubExpectAction,
+	"ExpectAttached":               StubExpectAction,
+	"ExpectChecked":                StubExpectAction,
+	"ExpectDisabled":               StubExpectAction,
+	"ExpectEditable":               StubExpectAction,
+	"ExpectEmpty":                  StubExpectAction,
+	"ExpectEnabled":                StubExpectAction,
+	"ExpectFocused":                StubExpectAction,
+	"ExpectHidden":                 StubExpectAction,
+	"ExpectInViewport":             StubExpectAction,
+	"ExpectVisible":                StubExpectAction,
+	"ExpectToContainClass":         StubExpectAction,
+	"ExpectToContainText":          StubExpectAction,
+	"ExpectAccessibleDescription":  StubExpectAction,
+	"ExpectAccessibleErrorMessage": StubExpectAction,
+	"ExpectAccessibleName":         StubExpectAction,
+	"ExpectClass":                  StubExpectAction,
+	"ExpectCSS":                    StubExpectAction,
+	"ExpectId":                     StubExpectAction,
+	"ExpectJSProperty":             StubExpectAction,
+	"ExpectToMatchAriaSnapshot":    StubExpectAction,
 }
 
 func castOptions[Dest any](action *ExecutorAction) (dest *Dest, err error) {

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/url"
 	"slices"
+	"strings"
 
 	playwrightgo "github.com/playwright-community/playwright-go"
 	"github.com/zikani03/basi"
@@ -159,7 +160,9 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 }
 
 func performActions(ctx context.Context, page playwrightgo.Page, actions []ExecutorAction) error {
-	for _, action := range actions {
+	assertions := playwrightgo.NewPlaywrightAssertions()
+	var lastLocator playwrightgo.Locator
+	for i, action := range actions {
 		if action.Action == "" {
 			return fmt.Errorf("action cannot be empty, please specify an action")
 		}
@@ -168,6 +171,28 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 		}
 
 		actionName := action.Action
+
+		if strings.HasPrefix(actionName, "Expect") {
+			// we need to perform an assertion
+			if i == 0 {
+				return fmt.Errorf("cannot start with an Assertion")
+			}
+			prev := actions[i-1]
+
+			locator := lastLocator
+			if strings.HasPrefix(prev.Action, "Expect") == false {
+				locator = page.Locator(prev.Selector)
+			}
+			if locator == nil {
+				return fmt.Errorf("cannot perform assertion without a locator / selector")
+			}
+			err := performAssertion(assertions, locator, &action)
+			if err != nil {
+				return err
+			}
+			lastLocator = locator
+		}
+
 		actionFunc, ok := actionMap[actionName]
 		if !ok {
 			return fmt.Errorf("invalid or unsupported action: '%s'", actionName)
