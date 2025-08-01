@@ -3,7 +3,6 @@
 package core
 
 import (
-	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -183,20 +182,19 @@ type TestCase struct {
 }
 
 type TestStepResult struct {
-	Name              string            `json:"name"`
-	Errors            []Failure         `json:"errors"`
-	Skipped           []Skipped         `json:"skipped" yaml:"skipped"`
-	Status            Status            `json:"status" yaml:"status"`
-	Raw               interface{}       `json:"raw" yaml:"raw"`
-	Interpolated      interface{}       `json:"interpolated" yaml:"interpolated"`
-	Number            int               `json:"number" yaml:"number"`
-	RangedIndex       int               `json:"rangedIndex" yaml:"rangedIndex"`
-	RangedEnable      bool              `json:"rangedEnable" yaml:"rangedEnable"`
-	InputVars         map[string]string `json:"inputVars" yaml:"-"`
-	ComputedVars      H                 `json:"computedVars" yaml:"-"`
-	ComputedInfo      []string          `json:"computedInfos" yaml:"-"`
-	AssertionsApplied AssertionsApplied `json:"assertionsApplied" yaml:"-"`
-	Retries           int               `json:"retries" yaml:"retries"`
+	Name         string            `json:"name"`
+	Errors       []Failure         `json:"errors"`
+	Skipped      []Skipped         `json:"skipped" yaml:"skipped"`
+	Status       Status            `json:"status" yaml:"status"`
+	Raw          interface{}       `json:"raw" yaml:"raw"`
+	Interpolated interface{}       `json:"interpolated" yaml:"interpolated"`
+	Number       int               `json:"number" yaml:"number"`
+	RangedIndex  int               `json:"rangedIndex" yaml:"rangedIndex"`
+	RangedEnable bool              `json:"rangedEnable" yaml:"rangedEnable"`
+	InputVars    map[string]string `json:"inputVars" yaml:"-"`
+	ComputedVars H                 `json:"computedVars" yaml:"-"`
+	ComputedInfo []string          `json:"computedInfos" yaml:"-"`
+	Retries      int               `json:"retries" yaml:"retries"`
 
 	Systemout string    `json:"systemout"`
 	Systemerr string    `json:"systemerr"`
@@ -285,44 +283,6 @@ type FailureXML struct {
 	Value   string `xml:",cdata" json:"value" yaml:"value,omitempty"`
 	Type    string `xml:"type,attr,omitempty" json:"type" yaml:"type,omitempty"`
 	Message string `xml:"message,attr,omitempty" json:"message" yaml:"message,omitempty"`
-}
-
-func newFailure(ctx context.Context, tc TestCase, stepNumber int, rangedIndex int, assertion string, err error) *Failure {
-	filename := StringVarFromCtx(ctx, "venom.testsuite.filename")
-	var lineNumber = findLineNumber(filename, tc.originalName, stepNumber, assertion, -1)
-	var value string
-	if assertion != "" {
-		value = fmt.Sprintf(`Testcase %q, step #%d-%d: Assertion %q failed. %s (%v:%d)`,
-			tc.originalName,
-			stepNumber,
-			rangedIndex,
-			RemoveNotPrintableChar(assertion),
-			RemoveNotPrintableChar(err.Error()),
-			filename,
-			lineNumber,
-		)
-	} else {
-		value = fmt.Sprintf(`Testcase %q, step #%d-%d: %s (%v:%d)`,
-			tc.originalName,
-			stepNumber,
-			rangedIndex,
-			RemoveNotPrintableChar(err.Error()),
-			filename,
-			lineNumber,
-		)
-	}
-
-	var failure = Failure{
-		TestcaseClassname:  filename,
-		TestcaseName:       tc.Name,
-		TestcaseLineNumber: lineNumber,
-		StepNumber:         stepNumber,
-		Assertion:          assertion,
-		Error:              err,
-		Value:              value,
-	}
-
-	return &failure
 }
 
 func (f Failure) String() string {
