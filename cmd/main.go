@@ -44,7 +44,7 @@ type RunCmd struct {
 }
 
 type TestCmd struct {
-	File string `help:"File to test"`
+	File string `arg:"" help:"File to test"`
 }
 
 // CheckIfError should be used to naively panics if an error is not nil.
@@ -101,9 +101,23 @@ func (r *RunCmd) Run(globals *Globals) error {
 	return nil
 }
 
+func (c *TestCmd) Run(globals *Globals) error {
+	fileData, err := os.ReadFile(c.File)
+	if err != nil {
+		return err
+	}
+	parsed, err := basi.DebugParse(c.File, bytes.NewBuffer(fileData))
+	if err != nil {
+		return err
+	}
+	fmt.Printf("parsed %v", parsed)
+	return nil
+}
+
 type CLI struct {
 	Globals
-	Run RunCmd `cmd:"" help:"Run tests using basi"`
+	Run  RunCmd  `cmd:"" help:"Run tests using basi"`
+	Test TestCmd `cmd:"" help:"Test a .basi file for syntax"`
 }
 
 func main() {

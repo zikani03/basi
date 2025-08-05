@@ -44,3 +44,29 @@ func TestParseFail(t *testing.T) {
 		}
 	}
 }
+
+func TestParseMetadata(t *testing.T) {
+	cases := []string{
+		`ID            : "Some random ID"
+URL           : "https://nndi.cloud"
+Title         : "Navigate to home on nndi"
+Headless      : "yes"
+Description   : "Navigates to the NNDI website and clicks the Home link"
+Browsers      : "chromium"
+ScreenSizes   : "1080x800"
+Extends       : "./base.basi;Browsers,ScreenSizes,Devices,NetworkSpeed"
+---
+Goto "https://nndi.cloud"
+Click "#navbar > ul > li.active > a"
+ExpectAttr "data-nav-section" "home"
+Screenshot "body" "./test-nndi.png"
+`,
+	}
+
+	for _, content := range cases {
+		_, err := Parse("test.yaml", strings.NewReader(content))
+		if err != nil {
+			t.Errorf("test failed with content: %s", content)
+		}
+	}
+}

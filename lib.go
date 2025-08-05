@@ -81,11 +81,14 @@ func lexerActionsFromMap() string {
 var (
 	actionLexer = lexer.MustSimple([]lexer.SimpleRule{
 		{`Action`, lexerActionsFromMap()},
+		{`MetaField`, `ID|Title|URL|Description|Headless|Browsers|ScreenSizes|Extends`},
 		{`Ident`, `[a-zA-Z][a-zA-Z_\d]*`},
 		{`String`, `"(?:\\.|[^"])*"`},
 		{`Selector`, `"(?:\\.|[^"])*"`},
 		{"comment", `[#;][^\n]*`},
 		{"Whitespace", `[ \s]+`},
+		{"Colon", `[:]+`},
+		{"Separator", `\-{3}`},
 		{"EOL", `[\n\r]+`},
 	})
 	parser = participle.MustBuild[PlaywrightAction](
@@ -97,7 +100,20 @@ var (
 )
 
 type PlaywrightAction struct {
+	Meta *FrontMatter `@@`
+
 	Actions []*Action `@@*`
+}
+
+type FrontMatter struct {
+	Fields    []*MetaField `@@*`
+	Separator *string      `@Separator`
+}
+
+type MetaField struct {
+	// Pos   lexer.Position
+	Name  string `@MetaField`
+	Value string `":" @String`
 }
 
 type Action struct {
