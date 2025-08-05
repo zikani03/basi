@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -44,7 +45,7 @@ type RunCmd struct {
 }
 
 type TestCmd struct {
-	File string `help:"File to test"`
+	File string `arg:"" help:"File to test"`
 }
 
 // CheckIfError should be used to naively panics if an error is not nil.
@@ -67,20 +68,23 @@ func (r *RunCmd) Run(globals *Globals) error {
 	actions := make([]playwright.ExecutorAction, 0)
 
 	if strings.HasSuffix(r.File, ".basi") {
-		parsedActions, err := basi.Parse(r.File, bytes.NewBuffer(fileData))
+		parsed, err := basi.Parse(r.File, bytes.NewBuffer(fileData))
 		if err != nil {
 			return err
 		}
 
-		for _, p := range parsedActions.Actions {
+		for _, p := range parsed.Actions {
 			actions = append(actions, *playwright.NewExecutorAction(p))
 		}
 
+		headless := parsed.GetMetaFieldString("Headless") == "yes" || globals.Headless
 		executor = &playwright.Executor{
-			URL:      r.URL,
-			Browser:  globals.Browser,
-			Actions:  actions,
-			Headless: globals.Headless,
+			Name:        parsed.GetMetaFieldString("Title"),
+			Description: parsed.GetMetaFieldString("Description"),
+			URL:         cmp.Or(parsed.GetMetaFieldString("URL"), r.URL),
+			Browser:     cmp.Or(parsed.GetMetaFieldString("Browsers"), globals.Browser),
+			Headless:    headless,
+			Actions:     actions,
 		}
 
 	} else if strings.HasSuffix(r.File, ".yaml") || strings.HasSuffix(r.File, ".yml") {
@@ -101,9 +105,23 @@ func (r *RunCmd) Run(globals *Globals) error {
 	return nil
 }
 
+func (c *TestCmd) Run(globals *Globals) error {
+	fileData, err := os.ReadFile(c.File)
+	if err != nil {
+		return err
+	}
+	parsed, err := basi.DebugParse(c.File, bytes.NewBuffer(fileData))
+	if err != nil {
+		return err
+	}
+	fmt.Printf("parsed %v", parsed)
+	return nil
+}
+
 type CLI struct {
 	Globals
-	Run RunCmd `cmd:"" help:"Run tests using basi"`
+	Run  RunCmd  `cmd:"" help:"Run tests using basi"`
+	Test TestCmd `cmd:"" help:"Test a .basi file for syntax"`
 }
 
 func main() {

@@ -10,7 +10,6 @@ import (
 
 	playwrightgo "github.com/playwright-community/playwright-go"
 	"github.com/zikani03/basi"
-	"github.com/zikani03/basi/core"
 )
 
 const Name = "playwright"
@@ -23,7 +22,6 @@ type Executor struct {
 	Device      string           `json:"device" yaml:"device"`
 	Actions     []ExecutorAction `json:"actions" yaml:"actions"`
 	Headless    bool             `json:"headless" yaml:"headless"`
-	Assertions  []core.Assertion `json:"assertions,omitempty" yaml:"assertions,omitempty"`
 }
 
 type ExecutorAction struct {
@@ -98,6 +96,9 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 		return nil, fmt.Errorf("could not launch playwright: %w", err)
 	}
 
+	if e.Name != "" {
+		fmt.Printf("Running: \033[10;1;1m%s\033[0m on\033[32;1;4m(%s)\033[0m\n", e.Name, e.Browser)
+	}
 	pw, err := playwrightgo.Run()
 	if err != nil {
 		return nil, fmt.Errorf("could not launch playwright: %w", err)
