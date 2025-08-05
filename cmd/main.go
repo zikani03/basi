@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -67,20 +68,23 @@ func (r *RunCmd) Run(globals *Globals) error {
 	actions := make([]playwright.ExecutorAction, 0)
 
 	if strings.HasSuffix(r.File, ".basi") {
-		parsedActions, err := basi.Parse(r.File, bytes.NewBuffer(fileData))
+		parsed, err := basi.Parse(r.File, bytes.NewBuffer(fileData))
 		if err != nil {
 			return err
 		}
 
-		for _, p := range parsedActions.Actions {
+		for _, p := range parsed.Actions {
 			actions = append(actions, *playwright.NewExecutorAction(p))
 		}
 
+		headless := parsed.GetMetaFieldString("Headless") == "yes" || globals.Headless
 		executor = &playwright.Executor{
-			URL:      r.URL,
-			Browser:  globals.Browser,
-			Actions:  actions,
-			Headless: globals.Headless,
+			Name:        parsed.GetMetaFieldString("Title"),
+			Description: parsed.GetMetaFieldString("Description"),
+			URL:         cmp.Or(parsed.GetMetaFieldString("URL"), r.URL),
+			Browser:     cmp.Or(parsed.GetMetaFieldString("Browsers"), globals.Browser),
+			Headless:    headless,
+			Actions:     actions,
 		}
 
 	} else if strings.HasSuffix(r.File, ".yaml") || strings.HasSuffix(r.File, ".yml") {

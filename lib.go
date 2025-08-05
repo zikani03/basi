@@ -100,14 +100,28 @@ var (
 )
 
 type PlaywrightAction struct {
-	Meta *FrontMatter `@@`
+	Meta    *FrontMatter `@@`
+	Actions []*Action    `@@*`
+}
 
-	Actions []*Action `@@*`
+func (p *PlaywrightAction) GetMetaFieldString(name string) string {
+	if p.Meta == nil {
+		return ""
+	}
+	if p.Meta.Fields == nil {
+		return ""
+	}
+	for _, field := range p.Meta.Fields {
+		if field.Name == name {
+			return field.Value
+		}
+	}
+	return ""
 }
 
 type FrontMatter struct {
 	Fields    []*MetaField `@@*`
-	Separator *string      `@Separator`
+	Separator *string      `@Separator*`
 }
 
 type MetaField struct {

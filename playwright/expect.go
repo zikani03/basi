@@ -47,6 +47,8 @@ func performAssertion(assertions playwrightgo.PlaywrightAssertions, locator play
 		return ExpectToHaveAccessibleErrorMessage(assertions, locator, action)
 	case "accessiblename":
 		return ExpectToHaveAccessibleName(assertions, locator, action)
+	case "attr":
+		return ExpectToHaveAttribute(assertions, locator, action)
 	case "attribute":
 		return ExpectToHaveAttribute(assertions, locator, action)
 	case "class":
