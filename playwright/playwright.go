@@ -1,6 +1,7 @@
 package playwright
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -173,6 +174,15 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 
 		actionName := action.Action
 
+		if actionName == "Find" {
+			if loc, err := tryFindLocator(page, action); err != nil {
+				return fmt.Errorf("failed to find a element on the page using: '%s'", action.Content)
+			} else {
+				lastLocator = loc
+			}
+			continue
+		}
+
 		if strings.HasPrefix(actionName, "Expect") {
 			// we need to perform an assertion
 			if i == 0 {
@@ -181,7 +191,7 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 			prev := actions[i-1]
 
 			locator := lastLocator
-			if strings.HasPrefix(prev.Action, "Expect") == false {
+			if strings.HasPrefix(prev.Action, "Expect") == false && prev.Action != "Find" {
 				locator = page.Locator(prev.Selector)
 			}
 			if locator == nil {
@@ -212,4 +222,31 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 		}
 	}
 	return nil
+}
+
+func tryFindLocator(page playwrightgo.Page, action ExecutorAction) (playwrightgo.Locator, error) {
+	selectorOrContent := cmp.Or(action.Selector, action.Content)
+
+	if loc := page.GetByText(selectorOrContent); loc != nil {
+		return loc, nil
+	}
+	if loc := page.GetByPlaceholder(selectorOrContent); loc != nil {
+		return loc, nil
+	}
+	// if loc := page.GetByRole(*playwrightgo.AriaRoleApplication, selectorOrContent); loc != nil {
+	// 	return loc, nil
+	// }
+	if loc := page.GetByLabel(selectorOrContent); loc != nil {
+		return loc, nil
+	}
+
+	if loc := page.GetByAltText(selectorOrContent); loc != nil {
+		return loc, nil
+	}
+
+	if loc := page.Locator(selectorOrContent); loc != nil {
+		return loc, nil
+	}
+
+	return nil, fmt.Errorf("could not find element using %s", selectorOrContent)
 }
