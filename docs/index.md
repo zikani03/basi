@@ -8,8 +8,8 @@ Some notes about basi
 
 ## Objectives
 
-- Support YAML and .basi files
-- Support Assertions for full end-to-end testing flow
+- [x] Support YAML and .basi files
+- [x] Support Assertions for full end-to-end testing flow
 - Generate structured output files for integration into (CLIs, AI Agents, general system integrations/connects)
 - Support 95% of Playwright actions that can be done on programmatic SDKs
 - Support running playwright `--local`, `--docker` and `--remote`
@@ -31,12 +31,11 @@ The Lexer and Parser for the DSL is implemented using [participle](https://githu
 ## IDEAS
 
 ```
-[Config]
-  name: 
-  url: "https://localhost:5173"
-  headless: true 
-  device: "Samsung Galaxy"
-
+Title    : "Some test"
+URL      : "https://localhost:5173"
+Headless : "yes" 
+Browser  : "chromium"
+---
 Use "./login.basi"
 
 Fill       "#email" "change@example.com" 
@@ -47,7 +46,4 @@ Click      "#loginButton"
 WaitFor    ".second-dashboard-user-name"
 
 Use "./generate-document.basi"
-
-[Asserts]
-page body is "something"
 ```

@@ -22,6 +22,7 @@ var actionMap = map[string]ActionFunc{
 	"Blur":                         StubExpectAction,
 	"Clear":                        StubExpectAction,
 	"Fill":                         StubExpectAction,
+	"Find":                         StubExpectAction,
 	"Check":                        StubExpectAction,
 	"Uncheck":                      StubExpectAction,
 	"FillCheckbox":                 StubExpectAction,
