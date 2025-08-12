@@ -1,7 +1,10 @@
 package basi
 
 import (
+	"bytes"
+	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/alecthomas/participle/v2"
@@ -14,6 +17,8 @@ type ActionFunc int
 const StubExpectAction = 0
 
 var actionMap = map[string]ActionFunc{
+	"Use": StubExpectAction, // Use allows users to import from other files
+	// Playwright Actions
 	"Click":                        StubExpectAction,
 	"DoubleClick":                  StubExpectAction,
 	"Doubleclick":                  StubExpectAction,
@@ -156,7 +161,7 @@ func (Selector) value() {}
 type Value interface{ value() }
 
 func DebugParse(filename string, r io.Reader) (*PlaywrightAction, error) {
-	actions, err := parser.Parse(filename, r)
+	actions, err := Parse(filename, r)
 	repr.Println(actions, repr.Indent("  "), repr.OmitEmpty(true))
 	if err != nil {
 		return nil, err
@@ -165,9 +170,29 @@ func DebugParse(filename string, r io.Reader) (*PlaywrightAction, error) {
 }
 
 func Parse(filename string, r io.Reader) (*PlaywrightAction, error) {
-	actions, err := parser.Parse(filename, r)
+	pwAction, err := parser.Parse(filename, r)
 	if err != nil {
 		return nil, err
 	}
-	return actions, nil
+
+	allActions := make([]*Action, 0)
+
+	for _, action := range pwAction.Actions {
+		if action.Action == "Use" {
+			useFilename := action.Selector.Selector
+			data, err := os.ReadFile(useFilename)
+			if err != nil {
+				return nil, fmt.Errorf("failed to import file %s: %w", useFilename, err)
+			}
+			useAct, err := parser.Parse(useFilename, bytes.NewReader(data))
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse actions from imported file %s: %w", useFilename, err)
+			}
+			allActions = append(allActions, useAct.Actions...)
+		} else {
+			allActions = append(allActions, action)
+		}
+	}
+
+	return pwAction, nil
 }
