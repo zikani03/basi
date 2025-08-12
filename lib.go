@@ -194,5 +194,6 @@ func Parse(filename string, r io.Reader) (*PlaywrightAction, error) {
 		}
 	}
 
+	pwAction.Actions = allActions
 	return pwAction, nil
 }

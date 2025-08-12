@@ -16,6 +16,7 @@ type ActionFunc func(page playwrightgo.Page, action *ExecutorAction) error
 var SupportedActions = actionMap
 
 var actionMap = map[string]ActionFunc{
+	"Use":                   StubExpectAction,
 	"Click":                 ClickAction,
 	"DoubleClick":           DoubleClickAction,
 	"Doubleclick":           DoubleClickAction,
