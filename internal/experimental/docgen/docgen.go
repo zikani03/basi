@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/alecthomas/repr"
 	"github.com/zikani03/basi"
@@ -12,7 +14,7 @@ import (
 )
 
 func GenerateStepsFromActions(filename, url string, spec *basi.PlaywrightAction, debug bool) (string, error) {
-	actions, err := cloneAndaddScreenShotSteps(spec)
+	actions, err := cloneAndaddScreenShotSteps(filename, spec)
 	if err != nil {
 		return "", err
 	}
@@ -51,7 +53,9 @@ func GenerateStepsFromActions(filename, url string, spec *basi.PlaywrightAction,
 	stepNo := 1
 	for _, action := range actions {
 		if action.Action == "Screenshot" {
-			fmt.Fprintf(f, "![[Figure %d]](%s)\n\n", stepNo, action.Arguments.String)
+			screenshotFileName := action.Arguments.String
+			_, screenshotFileRel := filepath.Split(screenshotFileName)
+			fmt.Fprintf(f, "![[Figure %d]](%s)\n\n", stepNo, screenshotFileRel)
 			continue
 		}
 		fmt.Fprintf(f, "%d. %s %s\n\n", stepNo, action.Action, selectorToHuman(action.Selector.Selector))
@@ -65,8 +69,18 @@ func selectorToHuman(selector string) string {
 	return selector
 }
 
-func cloneAndaddScreenShotSteps(spec *basi.PlaywrightAction) ([]*basi.Action, error) {
+func cloneAndaddScreenShotSteps(sourcefile string, spec *basi.PlaywrightAction) ([]*basi.Action, error) {
 	newActions := make([]*basi.Action, 0)
+	var err error
+	dir, filename := filepath.Split(sourcefile)
+	specFilenameLower := strings.ReplaceAll(strings.ToLower(filename), ".basi", "")
+	if !filepath.IsAbs(dir) {
+		dir, err = filepath.Abs(dir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find directory to place doc and screenshot: %v", err)
+		}
+	}
+
 	for idx, action := range spec.Actions {
 		if action.Action == "" {
 			return nil, fmt.Errorf("action cannot be empty or nil at: %d", idx)
@@ -84,7 +98,7 @@ func cloneAndaddScreenShotSteps(spec *basi.PlaywrightAction) ([]*basi.Action, er
 				Selector: "body", // how to get the best screenshot element?
 			},
 			Arguments: &basi.String{
-				String: fmt.Sprintf("./step-%d.png", idx),
+				String: filepath.Join(dir, fmt.Sprintf("%s-step-%d.png", specFilenameLower, idx)),
 			},
 		})
 	}
