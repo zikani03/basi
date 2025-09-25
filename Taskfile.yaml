@@ -14,7 +14,7 @@ tasks:
   build:
     deps: [ clean ]
     cmds:
-      - go build -ldflags="-X 'basi.Version=$(git describe  --tags --candidates 1)'" -o build/basi ./cmd/main.go
+      - go build -ldflags="-X 'basi.Version=$(git describe  --tags --candidates 1)'" -o build/basi ./cmd/
   
   install-local:
     deps: [ build ]
