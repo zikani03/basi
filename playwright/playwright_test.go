@@ -101,3 +101,50 @@ func TestPerformActions(t *testing.T) {
 		}
 	})
 }
+
+func TestPerformFindOnEmptyElement(t *testing.T) {
+
+	testActions := []ExecutorAction{
+		{Action: "Find", Selector: "does-not-exist", Content: "does-not-exist"},
+	}
+
+	pw, err := playwrightgo.Run()
+	if err != nil {
+		t.Fail()
+	}
+	browser, err := pw.Chromium.Launch(playwrightgo.BrowserTypeLaunchOptions{
+		Headless: playwrightgo.Bool(true),
+	})
+	if err != nil {
+		t.Fail()
+	}
+	browserCtx, err := browser.NewContext()
+	if err != nil {
+		t.Fail()
+	}
+	page, err := browserCtx.NewPage()
+	if err != nil {
+		t.Fail()
+	}
+
+	err = page.SetContent(testPage, playwrightgo.PageSetContentOptions{})
+	if err != nil {
+		t.Error("failed to set testPage content")
+	}
+
+	err = performActions(context.Background(), page, testActions)
+	if err == nil {
+		t.Errorf("expected error while performing actions")
+	}
+
+	t.Cleanup(func() {
+		err = browser.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to close browser properly %v", err)
+		}
+		err = pw.Stop()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to close browser properly %v", err)
+		}
+	})
+}

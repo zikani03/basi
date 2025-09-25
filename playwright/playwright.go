@@ -176,11 +176,16 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 
 		if actionName == "Find" {
 			if loc, err := tryFindLocator(page, action); err != nil {
-				return fmt.Errorf("failed to find a element on the page using: '%s'", action.Content)
+				return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
 			} else {
 				lastLocator = loc
 			}
-			continue
+			numMatched, err := lastLocator.Count()
+			if numMatched <= 0 || err != nil {
+				return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
+			} else {
+				continue
+			}
 		}
 
 		if strings.HasPrefix(actionName, "Expect") {
