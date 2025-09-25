@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/alecthomas/participle/v2"
@@ -180,6 +181,10 @@ func Parse(filename string, r io.Reader) (*PlaywrightAction, error) {
 	for _, action := range pwAction.Actions {
 		if action.Action == "Use" {
 			useFilename := action.Selector.Selector
+			// resolve relative path files properly
+			if strings.HasPrefix(useFilename, ".") {
+				useFilename = filepath.Clean(filepath.Join(filepath.Dir(filename), useFilename))
+			}
 			data, err := os.ReadFile(useFilename)
 			if err != nil {
 				return nil, fmt.Errorf("failed to import file %s: %w", useFilename, err)
