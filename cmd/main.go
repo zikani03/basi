@@ -38,9 +38,10 @@ func CheckIfError(err error) {
 
 type CLI struct {
 	Globals
-	Run    RunCmd    `cmd:"" help:"Run tests using basi"`
-	RunDoc RunDocCmd `cmd:"" help:"Experimental feature to generate docs from steps"`
-	Test   TestCmd   `cmd:"" help:"Test a .basi file for syntax"`
+	Run           RunCmd                `cmd:"" help:"Run tests using basi"`
+	RunDoc        RunDocCmd             `cmd:"" help:"Experimental feature to generate docs from steps"`
+	Test          TestCmd               `cmd:"" help:"Test a .basi file for syntax"`
+	GenPlaywright GeneratePlaywrightCmd `cmd:"" help:"Generate playwright equivalent JavaScript file"`
 }
 
 func main() {
