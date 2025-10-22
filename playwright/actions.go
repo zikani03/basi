@@ -26,6 +26,9 @@ var actionMap = map[string]ActionFunc{
 	"Clear":                 ClearAction,
 	"Fill":                  FillAction,
 	"Find":                  StubExpectAction,
+	"FindNth":                  StubExpectAction,
+	"FindFirst":                  StubExpectAction,
+	"FindLast":                  StubExpectAction,
 	"Check":                 CheckAction,
 	"Uncheck":               UncheckAction,
 	"FillCheckbox":          CheckAction, // alias for Check
