@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 
 	playwrightgo "github.com/playwright-community/playwright-go"
@@ -174,7 +175,7 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 
 		actionName := action.Action
 
-		if actionName == "Find" {
+		if strings.HasPrefix(actionName, "Find") {
 			if loc, err := tryFindLocator(page, action); err != nil {
 				return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
 			} else {
@@ -196,7 +197,7 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 			prev := actions[i-1]
 
 			locator := lastLocator
-			if strings.HasPrefix(prev.Action, "Expect") == false && prev.Action != "Find" {
+			if !strings.HasPrefix(prev.Action, "Expect") && !strings.HasPrefix(prev.Action, "Find") {
 				locator = page.Locator(prev.Selector)
 			}
 			if locator == nil {
@@ -231,27 +232,34 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 
 func tryFindLocator(page playwrightgo.Page, action ExecutorAction) (playwrightgo.Locator, error) {
 	selectorOrContent := cmp.Or(action.Selector, action.Content)
-
-	if loc := page.GetByText(selectorOrContent); loc != nil {
-		return loc, nil
-	}
-	if loc := page.GetByPlaceholder(selectorOrContent); loc != nil {
-		return loc, nil
-	}
-	// if loc := page.GetByRole(*playwrightgo.AriaRoleApplication, selectorOrContent); loc != nil {
-	// 	return loc, nil
-	// }
-	if loc := page.GetByLabel(selectorOrContent); loc != nil {
-		return loc, nil
+	var loc playwrightgo.Locator
+	type SelectorFunc func(string) playwrightgo.Locator
+	selectorFuncs := []SelectorFunc{
+		func(s string) playwrightgo.Locator { return page.GetByText(s) },
+		func(s string) playwrightgo.Locator { return page.GetByPlaceholder(s) },
+		func(s string) playwrightgo.Locator { return page.GetByLabel(s) },
+		func(s string) playwrightgo.Locator { return page.GetByAltText(s) },
+		func(s string) playwrightgo.Locator { return page.Locator(s) },
 	}
 
-	if loc := page.GetByAltText(selectorOrContent); loc != nil {
-		return loc, nil
+	for _, f := range selectorFuncs {
+		loc = f(selectorOrContent)
+		if loc == nil {
+			return nil, fmt.Errorf("could not find element using %s", selectorOrContent)
+		}
 	}
 
-	if loc := page.Locator(selectorOrContent); loc != nil {
-		return loc, nil
+	switch action.Action {
+	case "FindNth":
+		nth, err := strconv.Atoi(action.Content)
+		if err != nil {
+			return nil, fmt.Errorf(`the parameter N must be a number for FindNth e.g. FindNth "%s" "5"`, selectorOrContent)
+		}
+		return loc.Nth(nth), nil
+	case "FindFirst":
+		return loc.First(), nil
+	case "FindLast":
+		return loc.Last(), nil
 	}
-
 	return nil, fmt.Errorf("could not find element using %s", selectorOrContent)
 }
