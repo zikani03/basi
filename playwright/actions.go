@@ -26,9 +26,9 @@ var actionMap = map[string]ActionFunc{
 	"Clear":                 ClearAction,
 	"Fill":                  FillAction,
 	"Find":                  StubExpectAction,
-	"FindNth":                  StubExpectAction,
-	"FindFirst":                  StubExpectAction,
-	"FindLast":                  StubExpectAction,
+	"FindNth":               StubExpectAction,
+	"FindFirst":             StubExpectAction,
+	"FindLast":              StubExpectAction,
 	"Check":                 CheckAction,
 	"Uncheck":               UncheckAction,
 	"FillCheckbox":          CheckAction, // alias for Check
@@ -121,13 +121,16 @@ func WaitForURLAction(page playwrightgo.Page, action *ExecutorAction) error {
 	timeout := 10_000.00
 	defaultOptions := playwrightgo.PageWaitForURLOptions{
 		Timeout:   &timeout,
-		WaitUntil: playwrightgo.WaitUntilStateCommit,
+		WaitUntil: playwrightgo.WaitUntilStateDomcontentloaded,
 	}
 
 	if action.Options != nil {
 		options, err := castOptions[playwrightgo.PageWaitForURLOptions](action)
 		if err != nil {
 			return fmt.Errorf("failed to parse PageWaitForURLOptions")
+		}
+		if options.WaitUntil == nil {
+			options.WaitUntil = playwrightgo.WaitUntilStateDomcontentloaded
 		}
 		return page.WaitForURL(*options)
 	}
@@ -287,10 +290,15 @@ func RefreshAction(page playwrightgo.Page, action *ExecutorAction) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse PageReloadOptions")
 		}
+		if options.WaitUntil == nil {
+			options.WaitUntil = playwrightgo.WaitUntilStateDomcontentloaded
+		}
 		_, err = page.Reload(*options)
 		return err
 	}
-	_, err := page.Reload()
+	_, err := page.Reload(playwrightgo.PageReloadOptions{
+		WaitUntil: playwrightgo.WaitUntilStateDomcontentloaded,
+	})
 	return err
 }
 
@@ -300,10 +308,15 @@ func GoBackAction(page playwrightgo.Page, action *ExecutorAction) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse PageGoBackOptions")
 		}
+		if options.WaitUntil == nil {
+			options.WaitUntil = playwrightgo.WaitUntilStateDomcontentloaded
+		}
 		_, err = page.GoBack(*options)
 		return err
 	}
-	_, err := page.GoBack()
+	_, err := page.GoBack(playwrightgo.PageGoBackOptions{
+		WaitUntil: playwrightgo.WaitUntilStateDomcontentloaded,
+	})
 	return err
 }
 
@@ -313,10 +326,15 @@ func GoForwardAction(page playwrightgo.Page, action *ExecutorAction) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse PageGoForwardOptions")
 		}
+		if options.WaitUntil == nil {
+			options.WaitUntil = playwrightgo.WaitUntilStateDomcontentloaded
+		}
 		_, err = page.GoForward(*options)
 		return err
 	}
-	_, err := page.GoForward()
+	_, err := page.GoForward(playwrightgo.PageGoForwardOptions{
+		WaitUntil: playwrightgo.WaitUntilStateDomcontentloaded,
+	})
 	return err
 }
 
@@ -325,7 +343,7 @@ func GotoAction(page playwrightgo.Page, action *ExecutorAction) error {
 	timeout := 10_000.00
 	defaultOptions := playwrightgo.PageGotoOptions{
 		Timeout:   &timeout,
-		WaitUntil: playwrightgo.WaitUntilStateCommit,
+		WaitUntil: playwrightgo.WaitUntilStateDomcontentloaded,
 	}
 
 	options := defaultOptions
@@ -335,6 +353,9 @@ func GotoAction(page playwrightgo.Page, action *ExecutorAction) error {
 			return fmt.Errorf("failed to parse PageGotoOptions")
 		}
 		options = *userOpts
+		if options.WaitUntil == nil {
+			options.WaitUntil = playwrightgo.WaitUntilStateDomcontentloaded
+		}
 	}
 
 	finalURL := urlPattern
