@@ -30,6 +30,7 @@ var actions = []string{
 	"Fill",
 	"FindNth",
 	"FindMatching",
+	"FindRegex", // alias of FindMatching
 	"FindFirst",
 	"FindLast",
 	"Find",

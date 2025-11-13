@@ -256,7 +256,7 @@ func tryFindLocator(page playwrightgo.Page, action ExecutorAction) (playwrightgo
 			return nil, fmt.Errorf(`the parameter N must be a number for FindNth e.g. FindNth "%s" "5"`, selectorOrContent)
 		}
 		return loc.Nth(nth), nil
-	case "FindMatching":
+	case "FindMatching", "FindRegex":
 		notExact := false
 		pattern := action.Content
 		// check if the content is a regular expression or make it into one

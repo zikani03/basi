@@ -28,6 +28,7 @@ var actionMap = map[string]ActionFunc{
 	"Find":                  StubExpectAction,
 	"FindNth":               StubExpectAction,
 	"FindMatching":          StubExpectAction,
+	"FindRegex":             StubExpectAction, // alias of FindMatching
 	"FindFirst":             StubExpectAction,
 	"FindLast":              StubExpectAction,
 	"Check":                 CheckAction,
