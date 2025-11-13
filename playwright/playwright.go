@@ -256,10 +256,24 @@ func tryFindLocator(page playwrightgo.Page, action ExecutorAction) (playwrightgo
 			return nil, fmt.Errorf(`the parameter N must be a number for FindNth e.g. FindNth "%s" "5"`, selectorOrContent)
 		}
 		return loc.Nth(nth), nil
+	case "FindMatching":
+		notExact := false
+		pattern := action.Content
+		// check if the content is a regular expression or make it into one
+		if !strings.HasSuffix(pattern, "/") && strings.HasPrefix(pattern, "/") {
+			pattern = "/" + action.Content + "/"
+		}
+		loc = page.GetByText(pattern, playwrightgo.PageGetByTextOptions{
+			Exact: &notExact,
+		})
+		return loc.First(), nil
 	case "FindFirst":
 		return loc.First(), nil
 	case "FindLast":
 		return loc.Last(), nil
 	}
-	return nil, fmt.Errorf("could not find element using %s", selectorOrContent)
+	if loc == nil {
+		return nil, fmt.Errorf("could not find element using %s", selectorOrContent)
+	}
+	return loc, nil
 }

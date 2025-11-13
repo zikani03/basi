@@ -29,6 +29,7 @@ var actions = []string{
 	"Clear",
 	"Fill",
 	"FindNth",
+	"FindMatching",
 	"FindFirst",
 	"FindLast",
 	"Find",
