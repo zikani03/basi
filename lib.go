@@ -29,6 +29,8 @@ var actions = []string{
 	"Clear",
 	"Fill",
 	"FindNth",
+	"FindMatching",
+	"FindRegex", // alias of FindMatching
 	"FindFirst",
 	"FindLast",
 	"Find",
