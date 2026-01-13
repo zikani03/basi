@@ -1,0 +1,34 @@
+# Site configuration
+site_name: basi
+site_description: Browser automation and application testing
+site_author: Zikani Nyirenda Mwase
+site_url: https://labs.zikani.me/basi
+repo_name: zikani03/basi
+repo_url: https://github.com/zikani03/basi
+edit_uri: edit/main/website/
+# docs_dir: website
+theme:
+  name: material
+
+# Navigation
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Actions: actions.md
+  - Assertions: assertions.md
+  - Installation: installation.md
+  - Why basi?: why.md
+
+# Extensions
+markdown_extensions:
+  # - markdown_include.include:
+  #     base_path: docs
+  - admonition
+  - codehilite
+  - footnotes
+  - meta
+  - pymdownx.details
+  - pymdownx.tabbed
+  - pymdownx.superfences
+  - toc:
+      permalink: true
