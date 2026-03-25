@@ -51,6 +51,7 @@ func (r *RunCmd) Run(globals *Globals) error {
 			Browser:     cmp.Or(parsed.GetMetaFieldString("Browsers"), globals.Browser),
 			Headless:    headless,
 			Actions:     actions,
+			Context:     playwright.NewExecutionContext(),
 		}
 
 	} else if strings.HasSuffix(r.File, ".yaml") || strings.HasSuffix(r.File, ".yml") {
