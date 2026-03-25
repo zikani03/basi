@@ -13,6 +13,7 @@ import (
 
 type ActionFunc func(page playwrightgo.Page, action *ExecutorAction) error
 
+var DefaultTimeout = 10_000.00
 var SupportedActions = actionMap
 
 var actionMap = map[string]ActionFunc{
@@ -104,7 +105,7 @@ func ClickAction(page playwrightgo.Page, action *ExecutorAction) error {
 }
 
 func WaitForSelectorAction(page playwrightgo.Page, action *ExecutorAction) error {
-	timeout := 10_000.00
+	timeout := DefaultTimeout
 	defaultOptions := playwrightgo.LocatorWaitForOptions{
 		Timeout: &timeout,
 		State:   playwrightgo.WaitForSelectorStateAttached,
@@ -120,7 +121,7 @@ func WaitForSelectorAction(page playwrightgo.Page, action *ExecutorAction) error
 }
 
 func WaitForURLAction(page playwrightgo.Page, action *ExecutorAction) error {
-	timeout := 10_000.00
+	timeout := DefaultTimeout
 	defaultOptions := playwrightgo.PageWaitForURLOptions{
 		Timeout:   &timeout,
 		WaitUntil: playwrightgo.WaitUntilStateDomcontentloaded,
@@ -342,7 +343,7 @@ func GoForwardAction(page playwrightgo.Page, action *ExecutorAction) error {
 
 func GotoAction(page playwrightgo.Page, action *ExecutorAction) error {
 	urlPattern := action.Selector
-	timeout := 10_000.00
+	timeout := DefaultTimeout
 	defaultOptions := playwrightgo.PageGotoOptions{
 		Timeout:   &timeout,
 		WaitUntil: playwrightgo.WaitUntilStateDomcontentloaded,
@@ -442,7 +443,7 @@ func ScreenshotAction(page playwrightgo.Page, action *ExecutorAction) error {
 	if err != nil {
 		return err
 	}
-	defaultTimeout := 10_000.00
+	defaultTimeout := DefaultTimeout
 	fullPage := true
 	caretOption := playwrightgo.ScreenshotCaret("hide")
 	defaultOpts := playwrightgo.PageScreenshotOptions{
@@ -466,7 +467,7 @@ func UploadFileAction(page playwrightgo.Page, action *ExecutorAction) error {
 	//     string: local file path
 	filename := action.Content
 	noWaitAfter := true
-	timeout := 10_000.00
+	timeout := DefaultTimeout
 	opts, err := castOptions[playwrightgo.LocatorSetInputFilesOptions](action)
 	if err != nil {
 		return err
@@ -484,7 +485,7 @@ func UploadFileAction(page playwrightgo.Page, action *ExecutorAction) error {
 func UploadMultipleFilesAction(page playwrightgo.Page, action *ExecutorAction) error {
 	files := action.Content
 	noWaitAfter := true
-	timeout := 10_000.00
+	timeout := DefaultTimeout
 	opts, err := castOptions[playwrightgo.LocatorSetInputFilesOptions](action)
 	if err != nil {
 		return err

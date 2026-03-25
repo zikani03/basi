@@ -10,7 +10,8 @@ import (
 )
 
 type GeneratePlaywrightCmd struct {
-	File string `arg:"" help:"filename for file to run"`
+	File   string `arg:"" help:"filename for file to run"`
+	Output string `string:"" short:"o" help:"output filename"`
 }
 
 func (r *GeneratePlaywrightCmd) Run(globals *Globals) error {

@@ -14,9 +14,11 @@ theme:
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
+  - Installation: installation.md
   - Actions: actions.md
   - Assertions: assertions.md
-  - Installation: installation.md
+  - "Experiment: playwright gen": generate-playwright.md
+  - "Experiment: markdown gen": generate-markdown.md
   - Why basi?: why.md
 
 # Extensions
