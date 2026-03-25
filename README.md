@@ -21,10 +21,10 @@ non-technical users.
   </tr>
   <tr>
     <td>
-      <img src="./hero-with-basi.png" />
+      <img src="./website/docs/hero-with-basi.png" />
     </td>
     <td>
-      <img src="./hero-wtih-playwright-nodejs.png" />
+      <img src="./website/docs/hero-wtih-playwright-nodejs.png" />
     </td>
   </tr>
 </table>
