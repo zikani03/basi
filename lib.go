@@ -80,6 +80,12 @@ var actions = []string{
 	"ExpectId",
 	"ExpectJSProperty",
 	"ExpectToMatchAriaSnapshot",
+	// Property-based testing actions
+	"Always",
+	"Fuzz",
+	"Extract",
+	"Eventually",
+	"Next",
 }
 
 func lexerActionsFromMap() string {
@@ -95,6 +101,8 @@ var (
 		{`Action`, lexerActionsFromMap()},
 		{`MetaField`, `ID|Title|URL|Description|Headless|Browser`}, // TODO: support ScreenSizes, Extends
 		{`Ident`, `[a-zA-Z][a-zA-Z_\d]*`},
+		{`Variable`, `\$[a-zA-Z][a-zA-Z_\d]*`},
+		{`Number`, `\d+`},
 		{`String`, `"(?:\\.|[^"])*"`},
 		{`Selector`, `"(?:\\.|[^"])*"`},
 		{"comment", `[#;][^\n]*`},
@@ -145,10 +153,26 @@ type MetaField struct {
 type Action struct {
 	// Pos lexer.Position
 	Action    string    `@Action`
-	Selector  *Selector `@@`
+	Selector  *Selector `[ @@ ]`
 	Arguments *String   `[ @@ ]`
+	Variable  *Variable `[ @@ ]`
+	Number    *Number   `[ @@ ]`
 	comment   *string   `@comment`
 }
+
+type Variable struct {
+	// Pos     lexer.Position
+	Variable string `@Variable`
+}
+
+func (Variable) value() {}
+
+type Number struct {
+	// Pos    lexer.Position
+	Number int `@Number`
+}
+
+func (Number) value() {}
 
 type String struct {
 	// Pos    lexer.Position

@@ -79,6 +79,12 @@ var actionMap = map[string]ActionFunc{
 	"ExpectId":                     StubExpectAction,
 	"ExpectJSProperty":             StubExpectAction,
 	"ExpectToMatchAriaSnapshot":    StubExpectAction,
+	// Property-based testing actions
+	"Always":     AlwaysAction,
+	"Fuzz":       FuzzAction,
+	"Extract":    ExtractAction,
+	"Eventually": EventuallyAction,
+	"Next":       NextAction,
 }
 
 func castOptions[Dest any](action *ExecutorAction) (dest *Dest, err error) {
@@ -498,4 +504,37 @@ func UploadMultipleFilesAction(page playwrightgo.Page, action *ExecutorAction) e
 		opts = &defaultOpts
 	}
 	return page.Locator(action.Selector).First().SetInputFiles(files, *opts)
+}
+
+// Property-based testing actions
+
+func AlwaysAction(page playwrightgo.Page, action *ExecutorAction) error {
+	// This action registers an invariant - it doesn't execute anything
+	// The invariant will be checked after every mutating action
+	// Implementation is handled in the execution context
+	return nil
+}
+
+func FuzzAction(page playwrightgo.Page, action *ExecutorAction) error {
+	// This action performs random interactions within a scope
+	// Implementation is handled in the execution context with timeouts
+	return nil
+}
+
+func ExtractAction(page playwrightgo.Page, action *ExecutorAction) error {
+	// This action extracts a value from the page and stores it in a variable
+	// Implementation is handled in the execution context
+	return nil
+}
+
+func EventuallyAction(page playwrightgo.Page, action *ExecutorAction) error {
+	// This action polls until a condition is met
+	// Implementation is handled in the execution context with timeouts
+	return nil
+}
+
+func NextAction(page playwrightgo.Page, action *ExecutorAction) error {
+	// This action asserts the immediate next state
+	// Implementation is handled in the execution context
+	return nil
 }

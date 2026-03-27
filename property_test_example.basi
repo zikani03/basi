@@ -1,0 +1,22 @@
+Title: "Property Based Testing Example"
+URL: "https://example.com"
+Headless: "yes"
+
+# Define global invariants
+Always "ExpectVisible #main-content"
+Always "ExpectAccessibleName main"
+
+# Extract initial state
+Extract "$initialTitle" "h1"
+
+# Perform some actions
+Click "#some-button"
+
+# Assert immediate next state
+Next "ExpectVisible .notification"
+
+# Perform fuzz testing
+Fuzz "5 .form-container .btn-danger"
+
+# Assert eventual state with variable interpolation
+Eventually "ExpectText $initialTitle h1"

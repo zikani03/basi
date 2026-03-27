@@ -17,20 +17,23 @@ import (
 const Name = "playwright"
 
 type Executor struct {
-	Name        string           `json:"name,omitempty" yaml:"name,omitempty"`
-	Description string           `json:"description,omitempty" yaml:"description,omitempty"`
-	URL         string           `json:"url" yaml:"url"`
-	Browser     string           `json:"browser" yaml:"browser"`
-	Device      string           `json:"device" yaml:"device"`
-	Actions     []ExecutorAction `json:"actions" yaml:"actions"`
-	Headless    bool             `json:"headless" yaml:"headless"`
+	Name        string            `json:"name,omitempty" yaml:"name,omitempty"`
+	Description string            `json:"description,omitempty" yaml:"description,omitempty"`
+	URL         string            `json:"url" yaml:"url"`
+	Browser     string            `json:"browser" yaml:"browser"`
+	Device      string            `json:"device" yaml:"device"`
+	Actions     []ExecutorAction  `json:"actions" yaml:"actions"`
+	Headless    bool              `json:"headless" yaml:"headless"`
+	Context     *ExecutionContext `json:"-" yaml:"-"` // Execution context for property-based testing
 }
 
 type ExecutorAction struct {
-	Action   string `json:"action"`                           // The action to perform, must be a valid/supported action
-	Selector string `json:"selector" yaml:"selector"`         // DOM selector or expression
-	Content  string `json:"content,omitempty" yaml:"content"` // Content for actions that require it
-	Options  any    `json:"options,omitempty" yaml:"options"` // Options applicable to the given action
+	Action   string `json:"action"`                             // The action to perform, must be a valid/supported action
+	Selector string `json:"selector" yaml:"selector"`           // DOM selector or expression
+	Content  string `json:"content,omitempty" yaml:"content"`   // Content for actions that require it
+	Variable string `json:"variable,omitempty" yaml:"variable"` // Variable name for Extract
+	Number   int    `json:"number,omitempty" yaml:"number"`     // Number for Fuzz step count
+	Options  any    `json:"options,omitempty" yaml:"options"`   // Options applicable to the given action
 }
 
 func NewExecutorAction(act *basi.Action) *ExecutorAction {
@@ -38,10 +41,20 @@ func NewExecutorAction(act *basi.Action) *ExecutorAction {
 	if act.Arguments != nil {
 		args = act.Arguments.String
 	}
+	variable := ""
+	if act.Variable != nil {
+		variable = act.Variable.Variable
+	}
+	number := 0
+	if act.Number != nil {
+		number = act.Number.Number
+	}
 	return &ExecutorAction{
 		Action:   act.Action,
 		Selector: act.Selector.Selector,
 		Content:  args,
+		Variable: variable,
+		Number:   number,
 		Options:  nil,
 	}
 }
@@ -125,9 +138,18 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not goto: %w", err)
 		}
+		// Set current origin for fuzzing boundary checks
+		if e.Context == nil {
+			e.Context = NewExecutionContext()
+		}
+		if currentURL := page.URL(); currentURL != "" {
+			if u, err := url.Parse(currentURL); err == nil {
+				e.Context.CurrentOrigin = u.Scheme + "://" + u.Host
+			}
+		}
 	}
 
-	err = performActions(ctx, page, e.Actions)
+	err = performActions(ctx, page, e.Actions, e.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -162,18 +184,110 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 	}, nil
 }
 
-func performActions(ctx context.Context, page playwrightgo.Page, actions []ExecutorAction) error {
+func performActions(ctx context.Context, page playwrightgo.Page, actions []ExecutorAction, execCtx *ExecutionContext) error {
+	if execCtx == nil {
+		execCtx = NewExecutionContext()
+	}
 	assertions := playwrightgo.NewPlaywrightAssertions()
 	var lastLocator playwrightgo.Locator
 	for i, action := range actions {
 		if action.Action == "" {
 			return fmt.Errorf("action cannot be empty, please specify an action")
 		}
-		if action.Selector == "" {
-			return fmt.Errorf("selector cannot be empty, please specify a selector")
-		}
 
 		actionName := action.Action
+
+		// Handle Always action - register invariant
+		if actionName == "Always" {
+			// The embedded expect action is in the Selector field
+			invariant := Invariant{
+				Action:   action.Selector,
+				Selector: "",
+				Content:  "",
+			}
+			execCtx.Invariants.Invariants = append(execCtx.Invariants.Invariants, invariant)
+			continue
+		}
+
+		// Handle Extract action
+		if actionName == "Extract" {
+			locator := page.Locator(action.Content)
+			textContent, err := locator.TextContent()
+			if err != nil {
+				return fmt.Errorf("failed to extract text from selector %s: %w", action.Content, err)
+			}
+			execCtx.Variables.Set(action.Selector, textContent)
+			continue
+		}
+
+		// Handle Fuzz action
+		if actionName == "Fuzz" {
+			// Parse the arguments: "stepCount scopeSelector ignoreSelector"
+			parts := strings.Fields(action.Selector)
+			if len(parts) < 1 {
+				return fmt.Errorf("Fuzz action requires at least a step count")
+			}
+			stepCount := 10 // default
+			if len(parts) >= 1 {
+				if parsedCount, err := strconv.Atoi(parts[0]); err == nil {
+					stepCount = parsedCount
+				}
+			}
+			scopeSelector := ".body" // default
+			if len(parts) >= 2 {
+				scopeSelector = parts[1]
+			}
+			ignoreSelector := "" // default
+			if len(parts) >= 3 {
+				ignoreSelector = parts[2]
+			}
+
+			fuzzAction := ExecutorAction{
+				Action:   "Fuzz",
+				Selector: scopeSelector,
+				Content:  ignoreSelector,
+				Number:   stepCount,
+			}
+			err := performFuzz(ctx, page, &fuzzAction, execCtx)
+			if err != nil {
+				return fmt.Errorf("fuzz action failed: %w", err)
+			}
+			continue
+		}
+
+		// Handle Eventually action
+		if actionName == "Eventually" {
+			// The embedded expect action is in the Selector field
+			embeddedActionObj := ExecutorAction{
+				Action:   action.Selector,
+				Selector: "",
+				Content:  "",
+			}
+			err := performEventually(ctx, page, &embeddedActionObj, execCtx, assertions)
+			if err != nil {
+				return fmt.Errorf("eventually action failed: %w", err)
+			}
+			continue
+		}
+
+		// Handle Next action
+		if actionName == "Next" {
+			// The embedded expect action is in the Selector field
+			embeddedActionObj := ExecutorAction{
+				Action:   action.Selector,
+				Selector: "",
+				Content:  "",
+			}
+			err := performNext(page, &embeddedActionObj, execCtx, assertions)
+			if err != nil {
+				return fmt.Errorf("next action failed: %w", err)
+			}
+			continue
+		}
+
+		if action.Selector == "" && actionName != "Extract" && actionName != "Fuzz" {
+			return fmt.Errorf("selector cannot be empty for action %s, please specify a selector", actionName)
+		}
 
 		if strings.HasPrefix(actionName, "Find") {
 			if loc, err := tryFindLocator(page, action); err != nil {
@@ -225,6 +339,14 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 		}
 		if actErr != nil {
 			return actErr
+		}
+
+		// Check invariants after mutating actions
+		if IsMutatingAction(actionName) {
+			err := execCtx.CheckInvariants(page, assertions)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
