@@ -36,6 +36,21 @@ type ExecutorAction struct {
 	Options  any    `json:"options,omitempty" yaml:"options"`   // Options applicable to the given action
 }
 
+// Target represents a locator target which can be either a semantic intent
+// or a pinned (deterministic) selector.
+type Target struct {
+	Raw      string
+	IsPinned bool
+}
+
+func NewTarget(raw string) Target {
+	isPinned := strings.HasPrefix(raw, "@")
+	return Target{
+		Raw:      strings.TrimPrefix(raw, "@"),
+		IsPinned: isPinned,
+	}
+}
+
 func NewExecutorAction(act *basi.Action) *ExecutorAction {
 	args := ""
 	if act.Arguments != nil {
@@ -184,13 +199,24 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 	}, nil
 }
 
+// Resolve evaluates a Target against the current page state.
+func Resolve(ctx context.Context, t Target, page playwrightgo.Page) (string, error) {
+	if t.IsPinned {
+		return t.Raw, nil
+	}
+	// TODO: Phase 2 - Compressed Accessibility Tree (CAT) generation
+	// TODO: Phase 3 - Resolution via Tiered Brain (Local SLM/Cloud VLM)
+	return t.Raw, nil
+}
+
 func performActions(ctx context.Context, page playwrightgo.Page, actions []ExecutorAction, execCtx *ExecutionContext) error {
 	if execCtx == nil {
 		execCtx = NewExecutionContext()
 	}
 	assertions := playwrightgo.NewPlaywrightAssertions()
 	var lastLocator playwrightgo.Locator
-	for i, action := range actions {
+	for i := range actions {
+		action := &actions[i]
 		if action.Action == "" {
 			return fmt.Errorf("action cannot be empty, please specify an action")
 		}
@@ -211,7 +237,12 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 
 		// Handle Extract action
 		if actionName == "Extract" {
-			locator := page.Locator(action.Content)
+			target := NewTarget(action.Content)
+			resolved, err := Resolve(ctx, target, page)
+			if err != nil {
+				return fmt.Errorf("failed to resolve extract target: %w", err)
+			}
+			locator := page.Locator(resolved)
 			textContent, err := locator.TextContent()
 			if err != nil {
 				return fmt.Errorf("failed to extract text from selector %s: %w", action.Content, err)
@@ -242,10 +273,12 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 				ignoreSelector = parts[2]
 			}
 
+			fuzzScope, _ := Resolve(ctx, NewTarget(scopeSelector), page)
+			fuzzIgnore, _ := Resolve(ctx, NewTarget(ignoreSelector), page)
 			fuzzAction := ExecutorAction{
 				Action:   "Fuzz",
-				Selector: scopeSelector,
-				Content:  ignoreSelector,
+				Selector: fuzzScope,
+				Content:  fuzzIgnore,
 				Number:   stepCount,
 			}
 			err := performFuzz(ctx, page, &fuzzAction, execCtx)
@@ -289,25 +322,41 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 			return fmt.Errorf("selector cannot be empty for action %s, please specify a selector", actionName)
 		}
 
-		if strings.HasPrefix(actionName, "Find") {
-			if loc, err := tryFindLocator(page, action); err != nil {
-				return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
-			} else {
-				lastLocator = loc
+		// Determine if the action uses a target selector that needs resolution
+		isTarget := true
+		nonTargetActions := map[string]bool{
+			"Always": true, "Eventually": true, "Next": true, "Extract": true, "Fuzz": true,
+			"Goto": true, "WaitForURL": true, "Screenshot": true,
+			"Refresh": true, "GoBack": true, "GoForward": true,
+		}
+		if nonTargetActions[actionName] {
+			isTarget = false
+		}
+
+		if isTarget && action.Selector != "" {
+			target := NewTarget(action.Selector)
+			resolved, err := Resolve(ctx, target, page)
+			if err != nil {
+				return fmt.Errorf("failed to resolve selector for action %s: %w", actionName, err)
 			}
+			action.Selector = resolved
+		}
+
+		if strings.HasPrefix(actionName, "Find") {
+			loc, err := tryFindLocator(page, *action)
+			if err != nil {
+				return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
+			}
+			lastLocator = loc
 			numMatched, err := lastLocator.Count()
 			if numMatched <= 0 || err != nil {
 				return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
-			} else {
-				continue
 			}
+			continue
 		}
 
-		if strings.HasPrefix(actionName, "Expect") {
-			// we need to perform an assertion
-			if i == 0 {
-				return fmt.Errorf("cannot start with an Assertion")
-			}
+		// Handle ExpectEach action
+		if actionName == "ExpectEach" {
 			prev := actions[i-1]
 
 			locator := lastLocator
@@ -317,11 +366,12 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 			if locator == nil {
 				return fmt.Errorf("cannot perform assertion without a locator / selector")
 			}
-			err := performAssertion(assertions, locator, &action)
+			err := performAssertion(assertions, locator, action)
 			if err != nil {
 				return err
 			}
 			lastLocator = locator
+			continue
 		}
 
 		actionFunc, ok := actionMap[actionName]
@@ -329,14 +379,9 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 			return fmt.Errorf("invalid or unsupported action: '%s'", actionName)
 		}
 
-		slog.Debug(fmt.Sprintf("performing action '%s'", action))
+		slog.Debug(fmt.Sprintf("performing action '%s'", *action))
 
-		var actErr error
-		if len(action.Content) <= 1 {
-			actErr = actionFunc(page, &action)
-		} else {
-			actErr = actionFunc(page, &action)
-		}
+		actErr := actionFunc(page, action)
 		if actErr != nil {
 			return actErr
 		}
