@@ -148,3 +148,88 @@ func TestPerformFindOnEmptyElement(t *testing.T) {
 		}
 	})
 }
+
+func TestGenerateCAT(t *testing.T) {
+	pw, err := playwrightgo.Run()
+	if err != nil {
+		t.Fatalf("could not start playwright: %v", err)
+	}
+	t.Cleanup(func() { pw.Stop() })
+
+	browser, err := pw.Chromium.Launch(playwrightgo.BrowserTypeLaunchOptions{
+		Headless: playwrightgo.Bool(true),
+	})
+	if err != nil {
+		t.Fatalf("could not launch browser: %v", err)
+	}
+	t.Cleanup(func() { browser.Close() })
+
+	context, err := browser.NewContext()
+	if err != nil {
+		t.Fatalf("could not create context: %v", err)
+	}
+	page, err := context.NewPage()
+	if err != nil {
+		t.Fatalf("could not create page: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		html     string
+		expected string
+	}{
+		{
+			name: "Basic structure with landmarks and interactive elements",
+			html: `
+				<nav><button id="b1" aria-label="Login">Sign In</button></nav>
+				<main>
+					<div class="ignore-me">
+						<input name="username" type="text" placeholder="User">
+					</div>
+				</main>
+			`,
+			expected: `nav>button#b1[aria-label="Login"]+main>input[name="username"][type="text"][placeholder="User"]`,
+		},
+		{
+			name: "Pruning of non-visual tags",
+			html: `
+				<form>
+					<script>alert(1)</script>
+					<style>.css { color: blue; }</style>
+					<svg><path d="M10 10"/></svg>
+					<button type="submit">Send</button>
+				</form>
+			`,
+			expected: `form>button[type="submit"]`,
+		},
+		{
+			name: "Nested interesting elements",
+			html: `
+				<section title="Container">
+					<article>
+						<a href="/post/1" title="Read more">Title</a>
+					</article>
+				</section>
+			`,
+			expected: `section[title="Container"]>article>a[title="Read more"]`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := page.SetContent(tt.html, playwrightgo.PageSetContentOptions{})
+			if err != nil {
+				t.Fatalf("failed to set content: %v", err)
+			}
+
+			cat, err := GenerateCAT(page)
+			if err != nil {
+				t.Fatalf("GenerateCAT failed: %v", err)
+			}
+
+			if cat != tt.expected {
+				t.Errorf("\nexpected: %s\ngot:      %s", tt.expected, cat)
+			}
+		})
+	}
+}

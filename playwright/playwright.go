@@ -204,7 +204,12 @@ func Resolve(ctx context.Context, t Target, page playwrightgo.Page) (string, err
 	if t.IsPinned {
 		return t.Raw, nil
 	}
-	// TODO: Phase 2 - Compressed Accessibility Tree (CAT) generation
+	cat, err := GenerateCAT(page)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate CAT: %w", err)
+	}
+	slog.Debug("generated CAT", "cat", cat)
+
 	// TODO: Phase 3 - Resolution via Tiered Brain (Local SLM/Cloud VLM)
 	return t.Raw, nil
 }
@@ -248,43 +253,6 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 				return fmt.Errorf("failed to extract text from selector %s: %w", action.Content, err)
 			}
 			execCtx.Variables.Set(action.Selector, textContent)
-			continue
-		}
-
-		// Handle Fuzz action
-		if actionName == "Fuzz" {
-			// Parse the arguments: "stepCount scopeSelector ignoreSelector"
-			parts := strings.Fields(action.Selector)
-			if len(parts) < 1 {
-				return fmt.Errorf("Fuzz action requires at least a step count")
-			}
-			stepCount := 10 // default
-			if len(parts) >= 1 {
-				if parsedCount, err := strconv.Atoi(parts[0]); err == nil {
-					stepCount = parsedCount
-				}
-			}
-			scopeSelector := ".body" // default
-			if len(parts) >= 2 {
-				scopeSelector = parts[1]
-			}
-			ignoreSelector := "" // default
-			if len(parts) >= 3 {
-				ignoreSelector = parts[2]
-			}
-
-			fuzzScope, _ := Resolve(ctx, NewTarget(scopeSelector), page)
-			fuzzIgnore, _ := Resolve(ctx, NewTarget(ignoreSelector), page)
-			fuzzAction := ExecutorAction{
-				Action:   "Fuzz",
-				Selector: fuzzScope,
-				Content:  fuzzIgnore,
-				Number:   stepCount,
-			}
-			err := performFuzz(ctx, page, &fuzzAction, execCtx)
-			if err != nil {
-				return fmt.Errorf("fuzz action failed: %w", err)
-			}
 			continue
 		}
 
