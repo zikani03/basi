@@ -14,14 +14,10 @@ import (
 
 // InvariantRegistry holds global invariants that must be checked after every mutating action
 type InvariantRegistry struct {
-	Invariants []Invariant
-}
-
-// Invariant represents a global assertion
-type Invariant struct {
-	Action   string
-	Selector string
-	Content  string
+	// Invariants are now full ExecutorActions to capture all details
+	// Note: Semantic selectors within invariants are not resolved in this iteration
+	// as CheckInvariants does not have access to the Executor instance.
+	Invariants []ExecutorAction
 }
 
 // VariableStore holds extracted variables during test execution
@@ -91,15 +87,67 @@ func IsMutatingAction(action string) bool {
 
 // CheckInvariants runs all registered invariants
 func (ec *ExecutionContext) CheckInvariants(page playwrightgo.Page, assertions playwrightgo.PlaywrightAssertions) error {
-	for _, invariant := range ec.Invariants.Invariants {
-		action := ExecutorAction{
-			Action:   invariant.Action,
-			Selector: invariant.Selector,
-			Content:  ec.Variables.InterpolateVariables(invariant.Content),
-		}
-		err := performAssertion(assertions, page.Locator(invariant.Selector), &action)
-		if err != nil {
-			return fmt.Errorf("invariant failed: %s %s %s: %w", invariant.Action, invariant.Selector, invariant.Content, err)
+	for _, invariantAction := range ec.Invariants.Invariants {
+		// For invariants, we assume selectors are already concrete (pinned or literal)
+		// as CheckInvariants does not currently have access to the Executor instance for semantic resolution.
+
+		if invariantAction.Action == "ExpectEach" {
+			// This block is duplicated from performActions, consider refactoring for reusability.
+			// For now, it will not resolve semantic selectors within the invariant's ExpectEach.
+			subActionName := invariantAction.Selector
+			targetSelector := invariantAction.Content
+			subActionArgs := invariantAction.Options
+
+			locators, err := page.Locator(targetSelector).All() // Assume targetSelector is a literal string
+			if err != nil {
+				return fmt.Errorf("invariant ExpectEach failed to find locators for '%s': %w", targetSelector, err)
+			}
+			if len(locators) == 0 {
+				return fmt.Errorf("invariant ExpectEach failed: no elements found for selector '%s'", targetSelector)
+			}
+
+			for idx, loc := range locators {
+				tempAction := ExecutorAction{
+					Action: subActionName,
+				}
+				// Distribute subActionArgs based on the subActionName
+				switch subActionName {
+				case "ExpectText", "ExpectToContainText", "ExpectValue", "ExpectToContainClass", "ExpectToHaveAccessibleDescription", "ExpectToHaveAccessibleErrorMessage", "ExpectToHaveAccessibleName", "ExpectToHaveClass", "ExpectToHaveId":
+					if arg, ok := subActionArgs.(string); ok {
+						tempAction.Content = arg
+					} else {
+						return fmt.Errorf("invariant ExpectEach %s: expected string argument for content, got %T", subActionName, subActionArgs)
+					}
+				case "ExpectAttr", "ExpectAttribute", "ExpectCSS", "ExpectJSProperty":
+					if attrName, ok := subActionArgs.(string); ok {
+						tempAction.Selector = attrName
+					} else {
+						return fmt.Errorf("invariant ExpectEach %s: expected string argument for attribute name, got %T", subActionName, subActionArgs)
+					}
+				default:
+					tempAction.Options = subActionArgs
+				}
+				err := performAssertion(assertions, loc, &tempAction)
+				if err != nil {
+					return fmt.Errorf("invariant ExpectEach %s failed for element %d (selector '%s'): %w", subActionName, idx, targetSelector, err)
+				}
+			}
+		} else {
+			// Normal invariant assertion
+			// Interpolate variables in selector and content
+			resolvedSelector := ec.Variables.InterpolateVariables(invariantAction.Selector)
+			resolvedContent := ec.Variables.InterpolateVariables(fmt.Sprintf("%v", invariantAction.Content)) // Assuming Content is a string for interpolation
+
+			tempAction := ExecutorAction{
+				Action:   invariantAction.Action,
+				Selector: resolvedSelector,
+				Content:  resolvedContent,
+				Options:  invariantAction.Options,
+			}
+			err := performAssertion(assertions, page.Locator(tempAction.Selector), &tempAction)
+			if err != nil {
+				return fmt.Errorf("invariant failed: %s %s %s: %w", invariantAction.Action, invariantAction.Selector, invariantAction.Content, err)
+			}
 		}
 	}
 	return nil

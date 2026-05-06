@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/zikani03/basi"
+	"github.com/zikani03/basi/internal/autoresolver"
 	"github.com/zikani03/basi/playwright"
 	"gopkg.in/yaml.v2"
 )
@@ -51,7 +52,15 @@ func (r *RunCmd) Run(globals *Globals) error {
 			Browser:     cmp.Or(parsed.GetMetaFieldString("Browsers"), globals.Browser),
 			Headless:    headless,
 			Actions:     actions,
-			Context:     playwright.NewExecutionContext(),
+			Cache:       map[string]string{},
+			Resolver: autoresolver.NewMock(map[string]string{
+				"The blue sign-up button": "#signup-button.blue",
+				"Fuzz Me":                 "#btn-fuzzable",
+				"Control Me":              "#btn-fuzzable1",
+				"Click Me":                "#btn-fuzzable2",
+				"Make Me Say Things":      "#btn-fuzzable3",
+			}),
+			Context: playwright.NewExecutionContext(),
 		}
 
 	} else if strings.HasSuffix(r.File, ".yaml") || strings.HasSuffix(r.File, ".yml") {

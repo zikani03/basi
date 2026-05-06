@@ -85,7 +85,26 @@ func ExpectText(assertions playwrightgo.PlaywrightAssertions, locator playwright
 
 func ExpectToHaveAttribute(assertions playwrightgo.PlaywrightAssertions, locator playwrightgo.Locator, action *ExecutorAction, page ...*playwrightgo.Page) error {
 	assert := assertions.Locator(locator)
-	return assert.ToHaveAttribute(action.Selector, action.Content)
+	attrName := action.Selector // Attribute name is in Selector field
+	if attrName == "" {
+		return fmt.Errorf("ExpectAttr: attribute name cannot be empty")
+	}
+
+	if action.Options != nil && action.Content != "" {
+		// Check for specific value
+		expectedValue, ok := action.Options.(string)
+		if !ok {
+			return fmt.Errorf("ExpectAttr: expected string argument for attribute value, got %T", action.Content)
+		}
+		return assert.ToHaveAttribute(attrName, expectedValue)
+	} else {
+		// Check for attribute existence
+		attrValue, err := locator.GetAttribute(attrName)
+		if err != nil || attrValue == "" {
+			return fmt.Errorf("ExpectAttr: attribute '%s' not found or failed to retrieve: %w", attrName, err)
+		}
+		return nil // Attribute exists
+	}
 }
 
 func ExpectToHaveValue(assertions playwrightgo.PlaywrightAssertions, locator playwrightgo.Locator, action *ExecutorAction, page ...*playwrightgo.Page) error {

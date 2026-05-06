@@ -12,19 +12,22 @@ import (
 
 	playwrightgo "github.com/playwright-community/playwright-go"
 	"github.com/zikani03/basi"
+	"github.com/zikani03/basi/internal/autoresolver"
 )
 
 const Name = "playwright"
 
 type Executor struct {
-	Name        string            `json:"name,omitempty" yaml:"name,omitempty"`
-	Description string            `json:"description,omitempty" yaml:"description,omitempty"`
-	URL         string            `json:"url" yaml:"url"`
-	Browser     string            `json:"browser" yaml:"browser"`
-	Device      string            `json:"device" yaml:"device"`
-	Actions     []ExecutorAction  `json:"actions" yaml:"actions"`
-	Headless    bool              `json:"headless" yaml:"headless"`
-	Context     *ExecutionContext `json:"-" yaml:"-"` // Execution context for property-based testing
+	Name        string                          `json:"name,omitempty" yaml:"name,omitempty"`
+	Description string                          `json:"description,omitempty" yaml:"description,omitempty"`
+	URL         string                          `json:"url" yaml:"url"`
+	Browser     string                          `json:"browser" yaml:"browser"`
+	Device      string                          `json:"device" yaml:"device"`
+	Actions     []ExecutorAction                `json:"actions" yaml:"actions"`
+	Headless    bool                            `json:"headless" yaml:"headless"`
+	Context     *ExecutionContext               `json:"-" yaml:"-"` // Execution context for property-based testing
+	Cache       map[string]string               // Simulates basi.lock for intent -> selector mapping
+	Resolver    autoresolver.DOMElementResolver // The AI brain for resolution
 }
 
 type ExecutorAction struct {
@@ -81,6 +84,14 @@ func (a ExecutorAction) String() string {
 func New() *Executor {
 	return &Executor{
 		Headless: true,
+		Cache:    make(map[string]string),
+		Resolver: autoresolver.NewMock(map[string]string{
+			"The blue sign-up button": "#signup-button.blue",
+			"Fuzz Me":                 "#btn-fuzzable",
+			"Control Me":              "#btn-fuzzable1",
+			"Click Me":                "#btn-fuzzable2",
+			"Make Me Say Things":      "#btn-fuzzable3",
+		}),
 	}
 }
 
@@ -164,7 +175,7 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 		}
 	}
 
-	err = performActions(ctx, page, e.Actions, e.Context)
+	err = performActions(ctx, e, page, e.Actions, e.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -199,22 +210,35 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 	}, nil
 }
 
-// Resolve evaluates a Target against the current page state.
-func Resolve(ctx context.Context, t Target, page playwrightgo.Page) (string, error) {
+// resolveTarget evaluates a Target against the current page state using a tiered resolution pipeline.
+func (e *Executor) resolveTarget(ctx context.Context, t Target, page playwrightgo.Page) (string, error) {
 	if t.IsPinned {
 		return t.Raw, nil
 	}
+
+	// 1. Cache Lookup (simulated basi.lock)
+	if selector, ok := e.Cache[t.Raw]; ok {
+		slog.Debug("Resolved from cache", "intent", t.Raw, "selector", selector)
+		return selector, nil
+	}
+
+	// 2. Generate Compressed Accessibility Tree (CAT)
 	cat, err := GenerateCAT(page)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate CAT: %w", err)
 	}
-	slog.Debug("generated CAT", "cat", cat)
-
-	// TODO: Phase 3 - Resolution via Tiered Brain (Local SLM/Cloud VLM)
-	return t.Raw, nil
+	slog.Default().Info("resolving CAT", "cat", cat, "raw", t.Raw)
+	// 3. Resolve via Tiered Brain (Local SLM/Cloud VLM)
+	selector, err := e.Resolver.Query(ctx, t.Raw, cat)
+	if err != nil {
+		return "", fmt.Errorf("brain failed to resolve intent '%s': %w", t.Raw, err)
+	}
+	e.Cache[t.Raw] = selector // Store in cache for future lookups within this execution
+	slog.Debug("Resolved via brain and cached", "intent", t.Raw, "selector", selector)
+	return selector, nil
 }
 
-func performActions(ctx context.Context, page playwrightgo.Page, actions []ExecutorAction, execCtx *ExecutionContext) error {
+func performActions(ctx context.Context, executor *Executor, page playwrightgo.Page, actions []ExecutorAction, execCtx *ExecutionContext) error {
 	if execCtx == nil {
 		execCtx = NewExecutionContext()
 	}
@@ -231,10 +255,10 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 		// Handle Always action - register invariant
 		if actionName == "Always" {
 			// The embedded expect action is in the Selector field
-			invariant := Invariant{
+			invariant := ExecutorAction{
 				Action:   action.Selector,
-				Selector: "",
-				Content:  "",
+				Selector: action.Content,          // The selector for the invariant
+				Content:  action.Options.(string), // The argument for the invariant's assertion
 			}
 			execCtx.Invariants.Invariants = append(execCtx.Invariants.Invariants, invariant)
 			continue
@@ -243,7 +267,7 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 		// Handle Extract action
 		if actionName == "Extract" {
 			target := NewTarget(action.Content)
-			resolved, err := Resolve(ctx, target, page)
+			resolved, err := executor.resolveTarget(ctx, target, page)
 			if err != nil {
 				return fmt.Errorf("failed to resolve extract target: %w", err)
 			}
@@ -260,9 +284,9 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 		if actionName == "Eventually" {
 			// The embedded expect action is in the Selector field
 			embeddedActionObj := ExecutorAction{
-				Action:   action.Selector,
-				Selector: "",
-				Content:  "",
+				Action:   action.Selector,         // e.g., "ExpectText"
+				Selector: action.Content,          // e.g., "#my-element"
+				Content:  action.Options.(string), // e.g., "Expected Value"
 			}
 			err := performEventually(ctx, page, &embeddedActionObj, execCtx, assertions)
 			if err != nil {
@@ -275,13 +299,67 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 		if actionName == "Next" {
 			// The embedded expect action is in the Selector field
 			embeddedActionObj := ExecutorAction{
-				Action:   action.Selector,
-				Selector: "",
-				Content:  "",
+				Action:   action.Selector,         // e.g., "ExpectText"
+				Selector: action.Content,          // e.g., "#my-element"
+				Content:  action.Options.(string), // e.g., "Expected Value"
 			}
 			err := performNext(page, &embeddedActionObj, execCtx, assertions)
 			if err != nil {
 				return fmt.Errorf("next action failed: %w", err)
+			}
+			continue
+		}
+
+		// Handle ExpectEach action
+		if actionName == "ExpectEach" {
+			subActionName := action.Selector // e.g., "ExpectToContainText", "ExpectAttr"
+			targetSelector := action.Content // e.g., ".status-item", "img"
+			subActionArgs := action.Options  // e.g., "Active", "alt"
+
+			// Resolve the targetSelector for ExpectEach if it's a semantic intent
+			resolvedTargetSelector, err := executor.resolveTarget(ctx, NewTarget(targetSelector), page)
+			if err != nil {
+				return fmt.Errorf("ExpectEach: failed to resolve target selector '%s': %w", targetSelector, err)
+			}
+
+			locators, err := page.Locator(resolvedTargetSelector).All()
+			if err != nil {
+				return fmt.Errorf("ExpectEach failed to find locators for '%s': %w", resolvedTargetSelector, err)
+			}
+
+			if len(locators) == 0 {
+				return fmt.Errorf("ExpectEach failed: no elements found for selector '%s'", resolvedTargetSelector)
+			}
+
+			for idx, loc := range locators {
+				tempAction := ExecutorAction{
+					Action: subActionName,
+				}
+				// Distribute subActionArgs based on the subActionName
+				switch subActionName {
+				case "ExpectText", "ExpectToContainText", "ExpectValue", "ExpectToContainClass", "ExpectToHaveAccessibleDescription", "ExpectToHaveAccessibleErrorMessage", "ExpectToHaveAccessibleName", "ExpectToHaveClass", "ExpectToHaveId":
+					if arg, ok := subActionArgs.(string); ok {
+						tempAction.Content = arg
+					} else {
+						return fmt.Errorf("ExpectEach %s: expected string argument for content, got %T", subActionName, subActionArgs)
+					}
+				case "ExpectAttr", "ExpectAttribute", "ExpectCSS", "ExpectJSProperty":
+					if attrName, ok := subActionArgs.(string); ok {
+						tempAction.Selector = attrName // Attribute name goes into Selector
+						// If there's a second argument for expected value, it would be in action.Variable or a structured Options.
+						// For now, assume single argument for ExpectAttr (checking existence)
+					} else {
+						return fmt.Errorf("ExpectEach %s: expected string argument for attribute name, got %T", subActionName, subActionArgs)
+					}
+				default:
+					// For assertions that don't take arguments or take complex options
+					tempAction.Options = subActionArgs
+				}
+
+				err := performAssertion(assertions, loc, &tempAction)
+				if err != nil {
+					return fmt.Errorf("ExpectEach %s failed for element %d (selector '%s'): %w", subActionName, idx, resolvedTargetSelector, err)
+				}
 			}
 			continue
 		}
@@ -296,6 +374,7 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 			"Always": true, "Eventually": true, "Next": true, "Extract": true, "Fuzz": true,
 			"Goto": true, "WaitForURL": true, "Screenshot": true,
 			"Refresh": true, "GoBack": true, "GoForward": true,
+			"ExpectEach": true, // ExpectEach handles its own target resolution
 		}
 		if nonTargetActions[actionName] {
 			isTarget = false
@@ -303,7 +382,7 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 
 		if isTarget && action.Selector != "" {
 			target := NewTarget(action.Selector)
-			resolved, err := Resolve(ctx, target, page)
+			resolved, err := executor.resolveTarget(ctx, target, page)
 			if err != nil {
 				return fmt.Errorf("failed to resolve selector for action %s: %w", actionName, err)
 			}
@@ -320,25 +399,6 @@ func performActions(ctx context.Context, page playwrightgo.Page, actions []Execu
 			if numMatched <= 0 || err != nil {
 				return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
 			}
-			continue
-		}
-
-		// Handle ExpectEach action
-		if actionName == "ExpectEach" {
-			prev := actions[i-1]
-
-			locator := lastLocator
-			if !strings.HasPrefix(prev.Action, "Expect") && !strings.HasPrefix(prev.Action, "Find") {
-				locator = page.Locator(prev.Selector)
-			}
-			if locator == nil {
-				return fmt.Errorf("cannot perform assertion without a locator / selector")
-			}
-			err := performAssertion(assertions, locator, action)
-			if err != nil {
-				return err
-			}
-			lastLocator = locator
 			continue
 		}
 

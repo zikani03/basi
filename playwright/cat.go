@@ -73,6 +73,8 @@ const catScript = `
 }
 `
 
+// GenerateCAT generates a compressed accessibility tree in Emmet format for
+// sending to an AI for auto-detecting a tag on a UI
 func GenerateCAT(page playwrightgo.Page) (string, error) {
 	result, err := page.Evaluate(catScript)
 	if err != nil {

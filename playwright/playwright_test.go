@@ -85,7 +85,7 @@ func TestPerformActions(t *testing.T) {
 		t.Error("failed to set testPage content")
 	}
 
-	err = performActions(context.Background(), page, testActions, NewExecutionContext())
+	err = performActions(context.Background(), New(), page, testActions, NewExecutionContext())
 	if err != nil {
 		t.Errorf("failed to test actions %v", err)
 	}
@@ -132,7 +132,7 @@ func TestPerformFindOnEmptyElement(t *testing.T) {
 		t.Error("failed to set testPage content")
 	}
 
-	err = performActions(context.Background(), page, testActions, NewExecutionContext())
+	err = performActions(context.Background(), New(), page, testActions, NewExecutionContext())
 	if err == nil {
 		t.Errorf("expected error while performing actions")
 	}
