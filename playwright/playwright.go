@@ -129,8 +129,7 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 		cdpHeadersFromEnv := map[string]string{}
 		headersJSON := os.Getenv("CDP_HEADERS")
 		if headersJSON != "" {
-			var headers map[string]string
-			if err := json.Unmarshal([]byte(headersJSON), &headers); err != nil {
+			if err := json.Unmarshal([]byte(headersJSON), &cdpHeadersFromEnv); err != nil {
 				return nil, fmt.Errorf("failed to parse CDP_HEADERS: %v", err)
 			}
 		}
