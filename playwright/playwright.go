@@ -3,9 +3,11 @@ package playwright
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/url"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -28,6 +30,7 @@ type Executor struct {
 	Context     *ExecutionContext               `json:"-" yaml:"-"` // Execution context for property-based testing
 	Cache       map[string]string               // Simulates basi.lock for intent -> selector mapping
 	Resolver    autoresolver.DOMElementResolver // The AI brain for resolution
+	CDPEndpoint string                          `json:"cdpEndpoint,omitempty" yaml:"cdpEndpoint,omitempty"`
 }
 
 type ExecutorAction struct {
@@ -144,9 +147,27 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not launch playwright: %w", err)
 	}
-	browser, err := pw.Chromium.Launch(playwrightgo.BrowserTypeLaunchOptions{
-		Headless: playwrightgo.Bool(e.Headless), // should we expose this option?
-	})
+
+	var browser playwrightgo.Browser
+	if e.CDPEndpoint != "" {
+		// In order to support platforms like cloudflare, we need to allow users to be able to pass
+		// options like headers to the CDP options. The best way is probably to expose this somehowm but...
+		cdpHeadersFromEnv := map[string]string{}
+		headersJSON := os.Getenv("CDP_HEADERS")
+		if headersJSON != "" {
+			if err := json.Unmarshal([]byte(headersJSON), &cdpHeadersFromEnv); err != nil {
+				return nil, fmt.Errorf("failed to parse CDP_HEADERS: %v", err)
+			}
+		}
+		browser, err = pw.Chromium.ConnectOverCDP(e.CDPEndpoint, playwrightgo.BrowserTypeConnectOverCDPOptions{
+			Headers: cdpHeadersFromEnv,
+		})
+	} else {
+		browser, err = pw.Chromium.Launch(playwrightgo.BrowserTypeLaunchOptions{
+			Headless: playwrightgo.Bool(e.Headless), // should we expose this option?
+		})
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("could not launch Chromium: %w", err)
 	}
