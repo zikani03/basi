@@ -15,13 +15,14 @@ import (
 )
 
 type RunCmd struct {
-	File      string `arg:"" help:"filename for file to run"`
-	Directory string `short:"d" help:"directory containing .basi files to be run"`
-	URL       string `short:"u" help:"which url to run the test against"`
-	Remote    bool   `help:"whether to run remote test"`
-	Docker    bool   `help:"whether to run tests inside docker"`
-	Local     bool   `help:"whether to install playwright locally and run tests"`
-	OutputDir string `short:"o" help:"Where to write test output and screenshots"`
+	File        string `arg:"" help:"filename for file to run"`
+	Directory   string `short:"d" help:"directory containing .basi files to be run"`
+	URL         string `short:"u" help:"which url to run the test against"`
+	CDPEndpoint string `help:"URL to Chrome Developer Protocol compliant browser/server to run tests on"`
+	Remote      bool   `help:"whether to run remote test"`
+	Docker      bool   `help:"whether to run tests inside docker"`
+	Local       bool   `help:"whether to install playwright locally and run tests"`
+	OutputDir   string `short:"o" help:"Where to write test output and screenshots"`
 }
 
 func (r *RunCmd) Run(globals *Globals) error {
@@ -43,12 +44,20 @@ func (r *RunCmd) Run(globals *Globals) error {
 			actions = append(actions, *playwright.NewExecutorAction(p))
 		}
 
+		cdpEndpoint := cmp.Or(parsed.GetMetaFieldString("CDPEndpoint"), r.CDPEndpoint)
+		if cdpEndpoint != "" {
+			if !strings.HasPrefix(cdpEndpoint, "wss://") {
+				return fmt.Errorf("invalid CDP Endpoint provided: '%s'", cdpEndpoint)
+			}
+		}
+
 		headless := parsed.GetMetaFieldString("Headless") == "yes" || globals.Headless
 		executor = &playwright.Executor{
 			Name:        parsed.GetMetaFieldString("Title"),
 			Description: parsed.GetMetaFieldString("Description"),
 			URL:         cmp.Or(parsed.GetMetaFieldString("URL"), r.URL),
 			Browser:     cmp.Or(parsed.GetMetaFieldString("Browsers"), globals.Browser),
+			CDPEndpoint: cdpEndpoint,
 			Headless:    headless,
 			Actions:     actions,
 			Context:     playwright.NewExecutionContext(),

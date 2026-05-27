@@ -20,6 +20,7 @@ type Executor struct {
 	Name        string            `json:"name,omitempty" yaml:"name,omitempty"`
 	Description string            `json:"description,omitempty" yaml:"description,omitempty"`
 	URL         string            `json:"url" yaml:"url"`
+	CDPEndpoint string            `json:"cdpEndpoint,omitempty" yaml:"cdpEndpoint,omitempty"`
 	Browser     string            `json:"browser" yaml:"browser"`
 	Device      string            `json:"device" yaml:"device"`
 	Actions     []ExecutorAction  `json:"actions" yaml:"actions"`
@@ -118,9 +119,16 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not launch playwright: %w", err)
 	}
-	browser, err := pw.Chromium.Launch(playwrightgo.BrowserTypeLaunchOptions{
-		Headless: playwrightgo.Bool(e.Headless), // should we expose this option?
-	})
+
+	var browser playwrightgo.Browser
+	if e.CDPEndpoint != "" {
+		browser, err = pw.Chromium.ConnectOverCDP(e.CDPEndpoint)
+	} else {
+		browser, err = pw.Chromium.Launch(playwrightgo.BrowserTypeLaunchOptions{
+			Headless: playwrightgo.Bool(e.Headless), // should we expose this option?
+		})
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("could not launch Chromium: %w", err)
 	}
