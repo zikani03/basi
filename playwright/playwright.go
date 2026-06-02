@@ -123,6 +123,14 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 	}
 
 	var browser playwrightgo.Browser
+	var browserEngine playwrightgo.BrowserType
+
+	if e.Browser == "firefox" {
+		browserEngine = pw.Firefox
+	} else { // defaults to chromium on any other case
+		browserEngine = pw.Chromium
+	}
+
 	if e.CDPEndpoint != "" {
 		// In order to support platforms like cloudflare, we need to allow users to be able to pass
 		// options like headers to the CDP options. The best way is probably to expose this somehowm but...
@@ -133,11 +141,12 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 				return nil, fmt.Errorf("failed to parse CDP_HEADERS: %v", err)
 			}
 		}
-		browser, err = pw.Chromium.ConnectOverCDP(e.CDPEndpoint, playwrightgo.BrowserTypeConnectOverCDPOptions{
+
+		browser, err = browserEngine.ConnectOverCDP(e.CDPEndpoint, playwrightgo.BrowserTypeConnectOverCDPOptions{
 			Headers: cdpHeadersFromEnv,
 		})
 	} else {
-		browser, err = pw.Chromium.Launch(playwrightgo.BrowserTypeLaunchOptions{
+		browser, err = browserEngine.Launch(playwrightgo.BrowserTypeLaunchOptions{
 			Headless: playwrightgo.Bool(e.Headless), // should we expose this option?
 		})
 	}
