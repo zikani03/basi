@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	playwrightgo "github.com/playwright-community/playwright-go"
+	playwrightgo "github.com/mxschmitt/playwright-go"
 )
 
 const testPage = `

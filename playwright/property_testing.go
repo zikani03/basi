@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	playwrightgo "github.com/playwright-community/playwright-go"
+	playwrightgo "github.com/mxschmitt/playwright-go"
 )
 
 // InvariantRegistry holds global invariants that must be checked after every mutating action

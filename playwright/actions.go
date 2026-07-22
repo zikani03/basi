@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	playwrightgo "github.com/playwright-community/playwright-go"
+	playwrightgo "github.com/mxschmitt/playwright-go"
 	"github.com/spf13/cast"
 )
 

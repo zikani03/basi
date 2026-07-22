@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	playwrightgo "github.com/playwright-community/playwright-go"
+	playwrightgo "github.com/mxschmitt/playwright-go"
 )
 
 func StubExpectAction(page playwrightgo.Page, action *ExecutorAction) error {
