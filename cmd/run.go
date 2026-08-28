@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/zikani03/basi"
 	"github.com/zikani03/basi/playwright"
@@ -23,6 +24,18 @@ type RunCmd struct {
 	Docker      bool   `help:"whether to run tests inside docker"`
 	Local       bool   `help:"whether to install playwright locally and run tests"`
 	OutputDir   string `short:"o" help:"Where to write test output and screenshots"`
+	Timeout     string `short:"t" help:"Timeout e.g. 30s"`
+}
+
+func (r *RunCmd) getParsedTimeout() float64 {
+	if r.Timeout == "" {
+		return 0.0
+	}
+	d, err := time.ParseDuration(r.Timeout)
+	if err != nil {
+		return 0.0
+	}
+	return float64(d.Milliseconds())
 }
 
 func (r *RunCmd) Run(globals *Globals) error {
@@ -41,7 +54,11 @@ func (r *RunCmd) Run(globals *Globals) error {
 		}
 
 		for _, p := range parsed.Actions {
-			actions = append(actions, *playwright.NewExecutorAction(p))
+			action := *playwright.NewExecutorAction(p)
+			if r.Timeout != "" {
+				action.Timeout = r.getParsedTimeout()
+			}
+			actions = append(actions, action)
 		}
 
 		cdpEndpoint := cmp.Or(parsed.GetMetaFieldString("CDPEndpoint"), r.CDPEndpoint)
