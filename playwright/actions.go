@@ -14,6 +14,8 @@ import (
 type ActionFunc func(page playwrightgo.Page, action *ExecutorAction) error
 
 var DefaultTimeout = 10_000.00
+var MaxTimeout = 300_000.00
+
 var SupportedActions = actionMap
 
 var actionMap = map[string]ActionFunc{
@@ -99,6 +101,14 @@ func castOptions[Dest any](action *ExecutorAction) (dest *Dest, err error) {
 	return dest, nil
 }
 
+func getTimeout(action *ExecutorAction, orElse float64) *float64 {
+	if action.Timeout <= 0.0 && action.Timeout >= MaxTimeout {
+		return &orElse
+	}
+	timeout := float64(action.Timeout)
+	return &timeout
+}
+
 func ClickAction(page playwrightgo.Page, action *ExecutorAction) error {
 	if action.Options != nil {
 		options, err := castOptions[playwrightgo.LocatorClickOptions](action)
@@ -111,9 +121,9 @@ func ClickAction(page playwrightgo.Page, action *ExecutorAction) error {
 }
 
 func WaitForSelectorAction(page playwrightgo.Page, action *ExecutorAction) error {
-	timeout := DefaultTimeout
+	timeout := getTimeout(action, DefaultTimeout)
 	defaultOptions := playwrightgo.LocatorWaitForOptions{
-		Timeout: &timeout,
+		Timeout: timeout,
 		State:   playwrightgo.WaitForSelectorStateAttached,
 	}
 	if action.Options != nil {
@@ -127,9 +137,9 @@ func WaitForSelectorAction(page playwrightgo.Page, action *ExecutorAction) error
 }
 
 func WaitForURLAction(page playwrightgo.Page, action *ExecutorAction) error {
-	timeout := DefaultTimeout
+	timeout := getTimeout(action, DefaultTimeout)
 	defaultOptions := playwrightgo.PageWaitForURLOptions{
-		Timeout:   &timeout,
+		Timeout:   timeout,
 		WaitUntil: playwrightgo.WaitUntilStateDomcontentloaded,
 	}
 
@@ -349,9 +359,9 @@ func GoForwardAction(page playwrightgo.Page, action *ExecutorAction) error {
 
 func GotoAction(page playwrightgo.Page, action *ExecutorAction) error {
 	urlPattern := action.Selector
-	timeout := DefaultTimeout
+	timeout := getTimeout(action, DefaultTimeout)
 	defaultOptions := playwrightgo.PageGotoOptions{
-		Timeout:   &timeout,
+		Timeout:   timeout,
 		WaitUntil: playwrightgo.WaitUntilStateDomcontentloaded,
 	}
 
@@ -449,13 +459,13 @@ func ScreenshotAction(page playwrightgo.Page, action *ExecutorAction) error {
 	if err != nil {
 		return err
 	}
-	defaultTimeout := DefaultTimeout
+	timeout := getTimeout(action, DefaultTimeout)
 	fullPage := true
 	caretOption := playwrightgo.ScreenshotCaret("hide")
 	defaultOpts := playwrightgo.PageScreenshotOptions{
 		Caret:    &caretOption,
 		FullPage: &fullPage,
-		Timeout:  &defaultTimeout,
+		Timeout:  timeout,
 	}
 	if opts == nil {
 		opts = &defaultOpts
@@ -473,14 +483,14 @@ func UploadFileAction(page playwrightgo.Page, action *ExecutorAction) error {
 	//     string: local file path
 	filename := action.Content
 	noWaitAfter := true
-	timeout := DefaultTimeout
+	timeout := getTimeout(action, DefaultTimeout)
 	opts, err := castOptions[playwrightgo.LocatorSetInputFilesOptions](action)
 	if err != nil {
 		return err
 	}
 	defaultOpts := playwrightgo.LocatorSetInputFilesOptions{
 		NoWaitAfter: &noWaitAfter,
-		Timeout:     &timeout,
+		Timeout:     timeout,
 	}
 	if opts == nil {
 		opts = &defaultOpts
@@ -491,14 +501,14 @@ func UploadFileAction(page playwrightgo.Page, action *ExecutorAction) error {
 func UploadMultipleFilesAction(page playwrightgo.Page, action *ExecutorAction) error {
 	files := action.Content
 	noWaitAfter := true
-	timeout := DefaultTimeout
+	timeout := getTimeout(action, DefaultTimeout)
 	opts, err := castOptions[playwrightgo.LocatorSetInputFilesOptions](action)
 	if err != nil {
 		return err
 	}
 	defaultOpts := playwrightgo.LocatorSetInputFilesOptions{
 		NoWaitAfter: &noWaitAfter,
-		Timeout:     &timeout,
+		Timeout:     timeout,
 	}
 	if opts == nil {
 		opts = &defaultOpts

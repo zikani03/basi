@@ -31,12 +31,13 @@ type Executor struct {
 }
 
 type ExecutorAction struct {
-	Action   string `json:"action"`                             // The action to perform, must be a valid/supported action
-	Selector string `json:"selector" yaml:"selector"`           // DOM selector or expression
-	Content  string `json:"content,omitempty" yaml:"content"`   // Content for actions that require it
-	Variable string `json:"variable,omitempty" yaml:"variable"` // Variable name for Extract
-	Number   int    `json:"number,omitempty" yaml:"number"`     // Number for Fuzz step count
-	Options  any    `json:"options,omitempty" yaml:"options"`   // Options applicable to the given action
+	Action   string  `json:"action"`                                     // The action to perform, must be a valid/supported action
+	Selector string  `json:"selector" yaml:"selector"`                   // DOM selector or expression
+	Content  string  `json:"content,omitempty" yaml:"content"`           // Content for actions that require it
+	Variable string  `json:"variable,omitempty" yaml:"variable"`         // Variable name for Extract
+	Number   int     `json:"number,omitempty" yaml:"number"`             // Number for Fuzz step count
+	Options  any     `json:"options,omitempty" yaml:"options"`           // Options applicable to the given action
+	Timeout  float64 `json:"timeout,omitempty" yaml:"timeout,omitempty"` // timeout
 }
 
 func NewExecutorAction(act *basi.Action) *ExecutorAction {
