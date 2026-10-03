@@ -11,9 +11,11 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	playwrightgo "github.com/mxschmitt/playwright-go"
 	"github.com/zikani03/basi"
+	"github.com/zikani03/basi/core"
 )
 
 const Name = "playwright"
@@ -28,6 +30,8 @@ type Executor struct {
 	Actions     []ExecutorAction  `json:"actions" yaml:"actions"`
 	Headless    bool              `json:"headless" yaml:"headless"`
 	Context     *ExecutionContext `json:"-" yaml:"-"` // Execution context for property-based testing
+	Emitter     core.Emitter     `json:"-" yaml:"-"` // Progress emitter; nil means no-op
+	RunNumber   int              `json:"-" yaml:"-"` // Current run index (1-based) for repeated runs
 }
 
 type ExecutorAction struct {
@@ -81,6 +85,7 @@ type Result struct {
 type Page struct {
 	Location *url.URL   `json:"location" yaml:"location"`
 	Body     string     `json:"body" yaml:"body"`
+	Text     string     `json:"text" yaml:"text"` // plain-text content of the page body
 	Query    *PageQuery `json:"query" yaml:"query"`
 	Scripts  []string   `json:"scripts" yaml:"scripts"`
 	CSSFiles []string   `json:"css_files" yaml:"css_files"`
@@ -102,8 +107,17 @@ func (Executor) ZeroValueResult() interface{} {
 
 // Run execute TestStep of type playwright
 func (e *Executor) Run(ctx context.Context) (interface{}, error) {
+	emitter := e.Emitter
+	if emitter == nil {
+		emitter = core.NoopEmitter{}
+	}
+	runNumber := e.RunNumber
+	if runNumber < 1 {
+		runNumber = 1
+	}
+
 	browsers := make([]string, 0)
-	if e.Browser != "" && slices.Contains[[]string, string]([]string{"chromium", "firefox"}, e.Browser) {
+	if e.Browser != "" && slices.Contains([]string{"chromium", "firefox"}, e.Browser) {
 		browsers = append(browsers, e.Browser)
 	} else {
 		browsers = append(browsers, "chromium")
@@ -148,7 +162,7 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 		})
 	} else {
 		browser, err = browserEngine.Launch(playwrightgo.BrowserTypeLaunchOptions{
-			Headless: playwrightgo.Bool(e.Headless), // should we expose this option?
+			Headless: playwrightgo.Bool(e.Headless),
 		})
 	}
 
@@ -180,14 +194,18 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 		}
 	}
 
-	err = performActions(ctx, page, e.Actions, e.Context)
+	err = performActions(ctx, page, e.Actions, e.Context, emitter, runNumber)
 	if err != nil {
 		return nil, err
 	}
 
 	pageBodyBytes, err := page.Content()
 	if err != nil {
-		return nil, fmt.Errorf("could not goto: %w", err)
+		return nil, fmt.Errorf("could not get page content: %w", err)
+	}
+	pageText, err := page.Locator("body").InnerText()
+	if err != nil {
+		pageText = "" // non-fatal; some pages may not have a body
 	}
 
 	err = browser.Close()
@@ -206,6 +224,7 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 	pageResult := &Page{
 		Location: pageURL,
 		Body:     string(pageBodyBytes),
+		Text:     pageText,
 		Query:    nil,
 	}
 
@@ -215,169 +234,189 @@ func (e *Executor) Run(ctx context.Context) (interface{}, error) {
 	}, nil
 }
 
-func performActions(ctx context.Context, page playwrightgo.Page, actions []ExecutorAction, execCtx *ExecutionContext) error {
+func performActions(ctx context.Context, page playwrightgo.Page, actions []ExecutorAction, execCtx *ExecutionContext, emitter core.Emitter, runNumber int) error {
 	if execCtx == nil {
 		execCtx = NewExecutionContext()
 	}
 	assertions := playwrightgo.NewPlaywrightAssertions()
 	var lastLocator playwrightgo.Locator
 	for i, action := range actions {
-		if action.Action == "" {
-			return fmt.Errorf("action cannot be empty, please specify an action")
+		start := time.Now()
+		emitter.Emit(core.ProgressEvent{
+			Step:      i + 1,
+			Run:       runNumber,
+			Action:    action.Action,
+			Selector:  action.Selector,
+			Status:    core.StepRunning,
+			Timestamp: start.Format(time.RFC3339),
+		})
+
+		err := dispatchSingleAction(ctx, page, i, &action, actions, &lastLocator, execCtx, assertions)
+
+		elapsed := time.Since(start)
+		if err != nil {
+			emitter.Emit(core.ProgressEvent{
+				Step:       i + 1,
+				Run:        runNumber,
+				Action:     action.Action,
+				Selector:   action.Selector,
+				Status:     core.StepFail,
+				Message:    err.Error(),
+				Timestamp:  time.Now().Format(time.RFC3339),
+				DurationMs: elapsed.Milliseconds(),
+			})
+			return err
+		}
+		emitter.Emit(core.ProgressEvent{
+			Step:       i + 1,
+			Run:        runNumber,
+			Action:     action.Action,
+			Selector:   action.Selector,
+			Status:     core.StepOK,
+			Timestamp:  time.Now().Format(time.RFC3339),
+			DurationMs: elapsed.Milliseconds(),
+		})
+	}
+	return nil
+}
+
+func dispatchSingleAction(ctx context.Context, page playwrightgo.Page, i int, action *ExecutorAction, actions []ExecutorAction, lastLocator *playwrightgo.Locator, execCtx *ExecutionContext, assertions playwrightgo.PlaywrightAssertions) error {
+	if action.Action == "" {
+		return fmt.Errorf("action cannot be empty, please specify an action")
+	}
+
+	actionName := action.Action
+
+	// Handle Always action - register invariant
+	if actionName == "Always" {
+		invariant := Invariant{
+			Action:   action.Selector,
+			Selector: "",
+			Content:  "",
+		}
+		execCtx.Invariants.Invariants = append(execCtx.Invariants.Invariants, invariant)
+		return nil
+	}
+
+	// Handle Extract action
+	if actionName == "Extract" {
+		locator := page.Locator(action.Content)
+		textContent, err := locator.TextContent()
+		if err != nil {
+			return fmt.Errorf("failed to extract text from selector %s: %w", action.Content, err)
+		}
+		execCtx.Variables.Set(action.Selector, textContent)
+		return nil
+	}
+
+	// Handle Fuzz action
+	if actionName == "Fuzz" {
+		parts := strings.Fields(action.Selector)
+		if len(parts) < 1 {
+			return fmt.Errorf("Fuzz action requires at least a step count")
+		}
+		stepCount := 10
+		if parsedCount, err := strconv.Atoi(parts[0]); err == nil {
+			stepCount = parsedCount
+		}
+		scopeSelector := ".body"
+		if len(parts) >= 2 {
+			scopeSelector = parts[1]
+		}
+		ignoreSelector := ""
+		if len(parts) >= 3 {
+			ignoreSelector = parts[2]
 		}
 
-		actionName := action.Action
-
-		// Handle Always action - register invariant
-		if actionName == "Always" {
-			// The embedded expect action is in the Selector field
-			invariant := Invariant{
-				Action:   action.Selector,
-				Selector: "",
-				Content:  "",
-			}
-			execCtx.Invariants.Invariants = append(execCtx.Invariants.Invariants, invariant)
-			continue
+		fuzzAction := ExecutorAction{
+			Action:   "Fuzz",
+			Selector: scopeSelector,
+			Content:  ignoreSelector,
+			Number:   stepCount,
 		}
-
-		// Handle Extract action
-		if actionName == "Extract" {
-			locator := page.Locator(action.Content)
-			textContent, err := locator.TextContent()
-			if err != nil {
-				return fmt.Errorf("failed to extract text from selector %s: %w", action.Content, err)
-			}
-			execCtx.Variables.Set(action.Selector, textContent)
-			continue
+		if err := performFuzz(ctx, page, &fuzzAction, execCtx); err != nil {
+			return fmt.Errorf("fuzz action failed: %w", err)
 		}
+		return nil
+	}
 
-		// Handle Fuzz action
-		if actionName == "Fuzz" {
-			// Parse the arguments: "stepCount scopeSelector ignoreSelector"
-			parts := strings.Fields(action.Selector)
-			if len(parts) < 1 {
-				return fmt.Errorf("Fuzz action requires at least a step count")
-			}
-			stepCount := 10 // default
-			if len(parts) >= 1 {
-				if parsedCount, err := strconv.Atoi(parts[0]); err == nil {
-					stepCount = parsedCount
-				}
-			}
-			scopeSelector := ".body" // default
-			if len(parts) >= 2 {
-				scopeSelector = parts[1]
-			}
-			ignoreSelector := "" // default
-			if len(parts) >= 3 {
-				ignoreSelector = parts[2]
-			}
-
-			fuzzAction := ExecutorAction{
-				Action:   "Fuzz",
-				Selector: scopeSelector,
-				Content:  ignoreSelector,
-				Number:   stepCount,
-			}
-			err := performFuzz(ctx, page, &fuzzAction, execCtx)
-			if err != nil {
-				return fmt.Errorf("fuzz action failed: %w", err)
-			}
-			continue
+	// Handle Eventually action
+	if actionName == "Eventually" {
+		embeddedActionObj := ExecutorAction{
+			Action:   action.Selector,
+			Selector: "",
+			Content:  "",
 		}
-
-		// Handle Eventually action
-		if actionName == "Eventually" {
-			// The embedded expect action is in the Selector field
-			embeddedActionObj := ExecutorAction{
-				Action:   action.Selector,
-				Selector: "",
-				Content:  "",
-			}
-			err := performEventually(ctx, page, &embeddedActionObj, execCtx, assertions)
-			if err != nil {
-				return fmt.Errorf("eventually action failed: %w", err)
-			}
-			continue
+		if err := performEventually(ctx, page, &embeddedActionObj, execCtx, assertions); err != nil {
+			return fmt.Errorf("eventually action failed: %w", err)
 		}
+		return nil
+	}
 
-		// Handle Next action
-		if actionName == "Next" {
-			// The embedded expect action is in the Selector field
-			embeddedActionObj := ExecutorAction{
-				Action:   action.Selector,
-				Selector: "",
-				Content:  "",
-			}
-			err := performNext(page, &embeddedActionObj, execCtx, assertions)
-			if err != nil {
-				return fmt.Errorf("next action failed: %w", err)
-			}
-			continue
+	// Handle Next action
+	if actionName == "Next" {
+		embeddedActionObj := ExecutorAction{
+			Action:   action.Selector,
+			Selector: "",
+			Content:  "",
 		}
-
-		if action.Selector == "" && actionName != "Extract" && actionName != "Fuzz" {
-			return fmt.Errorf("selector cannot be empty for action %s, please specify a selector", actionName)
+		if err := performNext(page, &embeddedActionObj, execCtx, assertions); err != nil {
+			return fmt.Errorf("next action failed: %w", err)
 		}
+		return nil
+	}
 
-		if strings.HasPrefix(actionName, "Find") {
-			if loc, err := tryFindLocator(page, action); err != nil {
-				return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
-			} else {
-				lastLocator = loc
-			}
-			numMatched, err := lastLocator.Count()
-			if numMatched <= 0 || err != nil {
-				return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
-			} else {
-				continue
-			}
+	if action.Selector == "" && actionName != "Extract" && actionName != "Fuzz" {
+		return fmt.Errorf("selector cannot be empty for action %s, please specify a selector", actionName)
+	}
+
+	if strings.HasPrefix(actionName, "Find") {
+		loc, err := tryFindLocator(page, *action)
+		if err != nil {
+			return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
 		}
-
-		if strings.HasPrefix(actionName, "Expect") {
-			// we need to perform an assertion
-			if i == 0 {
-				return fmt.Errorf("cannot start with an Assertion")
-			}
-			prev := actions[i-1]
-
-			locator := lastLocator
-			if !strings.HasPrefix(prev.Action, "Expect") && !strings.HasPrefix(prev.Action, "Find") {
-				locator = page.Locator(prev.Selector)
-			}
-			if locator == nil {
-				return fmt.Errorf("cannot perform assertion without a locator / selector")
-			}
-			err := performAssertion(assertions, locator, &action)
-			if err != nil {
-				return err
-			}
-			lastLocator = locator
+		*lastLocator = loc
+		numMatched, err := (*lastLocator).Count()
+		if numMatched <= 0 || err != nil {
+			return fmt.Errorf("failed to find a element on the page using: '%s'", cmp.Or(action.Selector, action.Content))
 		}
+		return nil
+	}
 
-		actionFunc, ok := actionMap[actionName]
-		if !ok {
-			return fmt.Errorf("invalid or unsupported action: '%s'", actionName)
+	if strings.HasPrefix(actionName, "Expect") {
+		if i == 0 {
+			return fmt.Errorf("cannot start with an Assertion")
 		}
+		prev := actions[i-1]
 
-		slog.Debug(fmt.Sprintf("performing action '%s'", action))
-
-		var actErr error
-		if len(action.Content) <= 1 {
-			actErr = actionFunc(page, &action)
-		} else {
-			actErr = actionFunc(page, &action)
+		locator := *lastLocator
+		if !strings.HasPrefix(prev.Action, "Expect") && !strings.HasPrefix(prev.Action, "Find") {
+			locator = page.Locator(prev.Selector)
 		}
-		if actErr != nil {
-			return actErr
+		if locator == nil {
+			return fmt.Errorf("cannot perform assertion without a locator / selector")
 		}
+		if err := performAssertion(assertions, locator, action); err != nil {
+			return err
+		}
+		*lastLocator = locator
+	}
 
-		// Check invariants after mutating actions
-		if IsMutatingAction(actionName) {
-			err := execCtx.CheckInvariants(page, assertions)
-			if err != nil {
-				return err
-			}
+	actionFunc, ok := actionMap[actionName]
+	if !ok {
+		return fmt.Errorf("invalid or unsupported action: '%s'", actionName)
+	}
+
+	slog.Debug(fmt.Sprintf("performing action '%s'", action))
+
+	if actErr := actionFunc(page, action); actErr != nil {
+		return actErr
+	}
+
+	// Check invariants after mutating actions
+	if IsMutatingAction(actionName) {
+		if err := execCtx.CheckInvariants(page, assertions); err != nil {
+			return err
 		}
 	}
 	return nil
