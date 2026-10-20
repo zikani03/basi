@@ -366,6 +366,17 @@ func dispatchSingleAction(ctx context.Context, page playwrightgo.Page, i int, ac
 		return nil
 	}
 
+	// Resolve $var references and {{faker.<type>}} tokens in the normal-action
+	// path. This runs AFTER the special-action early returns (Always, Extract,
+	// Fuzz, Eventually, Next) on purpose: those use Selector as a variable name
+	// or config expression that must not be interpolated. Mutating this
+	// loop-local copy is safe and ensures repeated runs regenerate fresh faker
+	// values and re-read variables each time.
+	if execCtx != nil {
+		action.Selector = execCtx.Interpolate(action.Selector)
+		action.Content = execCtx.Interpolate(action.Content)
+	}
+
 	if action.Selector == "" && actionName != "Extract" && actionName != "Fuzz" {
 		return fmt.Errorf("selector cannot be empty for action %s, please specify a selector", actionName)
 	}
@@ -391,7 +402,13 @@ func dispatchSingleAction(ctx context.Context, page playwrightgo.Page, i int, ac
 
 		locator := *lastLocator
 		if !strings.HasPrefix(prev.Action, "Expect") && !strings.HasPrefix(prev.Action, "Find") {
-			locator = page.Locator(prev.Selector)
+			// Interpolate the previous selector so the assertion targets the
+			// same resolved selector that was used when the previous action ran.
+			prevSelector := prev.Selector
+			if execCtx != nil {
+				prevSelector = execCtx.Interpolate(prevSelector)
+			}
+			locator = page.Locator(prevSelector)
 		}
 		if locator == nil {
 			return fmt.Errorf("cannot perform assertion without a locator / selector")

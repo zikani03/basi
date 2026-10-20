@@ -10,11 +10,8 @@
 
 | # | Title | Effort | Priority | Verdict |
 |---|-------|--------|----------|---------|
-| [#16](#16) | Robust CI pipeline | M | High | Implement |
-| [#15](#15) | Inherit config from another file | S | Medium | Implement |
 | [#9](#9)  | Tab support (NewTab/OpenTab) | M | Medium | Implement |
 | [#29](#29) | Lock browser/playwright version | M | Medium | Implement |
-| [#26](#26) | Faker support for inputs | M | Low | Implement |
 | [#36](#36) | Support LightPanda browser | M | Medium | Implement |
 | [#18](#18) | Check source files (dev subcommand) | L | Low | Defer |
 
@@ -27,6 +24,18 @@ Effort: S = small (< 1 day), M = medium (1–3 days), L = large (> 3 days)
 | #34 | Emit progress as JSON Lines | 2ff565a |
 | #17 | Repeated runs (N times) | 2ff565a |
 | #8  | Output modes (JSON/HTML/Text) | 2ff565a |
+| #16 | Robust CI pipeline | _working tree (uncommitted)_ |
+| #15 | Inherit config from another `.basi` file (`Extends`) | _working tree (uncommitted)_ |
+| #26 | Faker support for inputs (`{{faker.*}}` + `FakerSeed`) | _working tree (uncommitted)_ |
+
+> **Note (2026-10-20):** #16, #15, #26 were implemented together. As part of #16 a
+> pre-existing failing parser test (`TestParseFail`, bare `Fill` wrongly accepted) was
+> fixed by adding post-parse operand validation in `lib.go` (navigation-only
+> `GoBack`/`GoForward`/`Refresh` remain operand-less). #26 also wired `$var` interpolation
+> into the main action-dispatch path, which previously only ran in the property-testing
+> path. The `Extends` example in #15 below references `ScreenSizes`/`Devices`/`NetworkSpeed`
+> config sections that **do not yet exist**; `Extends` was implemented generically so it
+> inherits whatever frontmatter fields a referenced file actually declares.
 
 ---
 
@@ -298,10 +307,10 @@ If implemented in future:
 
 ## Implementation Order
 
-1. **#16 CI pipeline** — establishes a safety net for all subsequent changes.
-2. **#15 Config inheritance** — small, no dependencies.
-3. **#9 Tab support** — medium, requires RunContext refactor.
-4. **#29 Version locking** — medium, operational value.
-5. **#26 Faker support** — medium, low priority.
-6. **#36 LightPanda** — medium, experimental browser.
+1. ~~**#16 CI pipeline** — establishes a safety net for all subsequent changes.~~ ✅ done
+2. ~~**#15 Config inheritance** — small, no dependencies.~~ ✅ done
+3. ~~**#26 Faker support** — medium, low priority.~~ ✅ done (also added `$var` interpolation to the main dispatch path)
+4. **#9 Tab support** — medium. Note: smaller than first estimated — actions receive the active `page` from the runner (`performActions`/`dispatchSingleAction`), so `NewTab`/`OpenTab`/`CloseTab` only need to swap which page the loop passes, not a rewrite of every action func.
+5. **#29 Version locking** — medium, operational value.
+6. **#36 LightPanda** — medium. Note: the CDP connect path (`ConnectOverCDP`) and `CDPEndpoint` frontmatter key already exist, so the remaining work is download + subprocess launch, not Playwright plumbing.
 7. **#18 Source file checker** — large, defer to later milestone.

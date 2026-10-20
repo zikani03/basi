@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/zikani03/basi"
 	"github.com/zikani03/basi/core"
 	"github.com/zikani03/basi/playwright"
@@ -61,6 +63,23 @@ func (r *RunCmd) Run(globals *Globals) error {
 		parsed, err := basi.Parse(r.File, bytes.NewBuffer(fileData))
 		if err != nil {
 			return err
+		}
+
+		// Inherit frontmatter configuration from any file referenced via the
+		// Extends field so the GetMetaFieldString calls below see it.
+		if err := basi.ResolveExtends(parsed, r.File); err != nil {
+			return err
+		}
+
+		// Seeding faker makes {{faker.*}} output deterministic across runs,
+		// which is useful for debugging / reproducible specs. If FakerSeed is
+		// unset we leave faker nondeterministic.
+		if seedStr := parsed.GetMetaFieldString("FakerSeed"); seedStr != "" {
+			seed, err := strconv.ParseInt(seedStr, 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid FakerSeed %q: must be an integer: %w", seedStr, err)
+			}
+			gofakeit.Seed(seed)
 		}
 
 		for _, p := range parsed.Actions {

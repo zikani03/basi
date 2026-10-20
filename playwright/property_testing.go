@@ -65,6 +65,18 @@ type ExecutionContext struct {
 	CurrentOrigin string
 }
 
+// Interpolate resolves both {{faker.<type>}} tokens and $var references in s.
+// Faker tokens are substituted first, then variable references; the two
+// syntaxes do not overlap so the order is irrelevant. It is nil-safe: a nil
+// Variables store only skips the $var pass.
+func (ec *ExecutionContext) Interpolate(s string) string {
+	s = interpolateFaker(s)
+	if ec == nil || ec.Variables == nil {
+		return s
+	}
+	return ec.Variables.InterpolateVariables(s)
+}
+
 // NewExecutionContext creates a new execution context
 func NewExecutionContext() *ExecutionContext {
 	return &ExecutionContext{
