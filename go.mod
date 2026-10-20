@@ -6,6 +6,7 @@ require (
 	github.com/alecthomas/kong v1.12.0
 	github.com/alecthomas/participle/v2 v2.1.4
 	github.com/alecthomas/repr v0.4.0
+	github.com/brianvoe/gofakeit/v6 v6.28.0
 	github.com/fatih/color v1.18.0
 	github.com/fsamin/go-dump v1.8.0
 	github.com/mxschmitt/playwright-go v0.6100.0

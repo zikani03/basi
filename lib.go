@@ -108,7 +108,7 @@ func lexerActionsFromMap() string {
 var (
 	actionLexer = lexer.MustSimple([]lexer.SimpleRule{
 		{`Action`, lexerActionsFromMap()},
-		{`MetaField`, `ID|Title|URL|Description|Headless|Browsers|Browser|CDPEndpoint|Extends`}, // TODO: support ScreenSizes
+		{`MetaField`, `ID|Title|URL|Description|Headless|Browsers|Browser|CDPEndpoint|Extends|FakerSeed`}, // TODO: support ScreenSizes
 		{`Ident`, `[a-zA-Z][a-zA-Z_\d]*`},
 		{`Variable`, `\$[a-zA-Z][a-zA-Z_\d]*`},
 		{`Number`, `\d+`},
