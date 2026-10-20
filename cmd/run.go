@@ -63,6 +63,12 @@ func (r *RunCmd) Run(globals *Globals) error {
 			return err
 		}
 
+		// Inherit frontmatter configuration from any file referenced via the
+		// Extends field so the GetMetaFieldString calls below see it.
+		if err := basi.ResolveExtends(parsed, r.File); err != nil {
+			return err
+		}
+
 		for _, p := range parsed.Actions {
 			action := *playwright.NewExecutorAction(p)
 			if r.Timeout != "" {
