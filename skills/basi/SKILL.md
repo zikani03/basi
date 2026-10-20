@@ -204,6 +204,57 @@ ExpectAccessibleDescription "Site navigation links"
 
 ---
 
+## Fake Data Generation
+
+String arguments to any action support `{{faker.<type>}}` tokens that are
+replaced with freshly generated values each time the action runs.
+
+```
+Goto "/signup"
+Fill "input[name=email]"    "{{faker.email}}"
+Fill "input[name=name]"     "{{faker.name}}"
+Fill "input[name=username]" "{{faker.username}}"
+Fill "input[name=phone]"    "{{faker.phone}}"
+Fill "input[name=company]"  "{{faker.company}}"
+Click "button[type=submit]"
+```
+
+Supported types: `email`, `name`, `firstname`, `lastname`, `username`, `phone`,
+`uuid`, `word`, `sentence`, `int`, `number`, `digit`, `date`, `url`, `bool`,
+`company`, `city`, `country`, `zip`, `street`, `price`.
+
+Unknown types are left as-is and a warning is logged.
+
+### Deterministic output
+
+Set `FakerSeed` in frontmatter to make generated values reproducible across
+runs — useful for debugging or snapshot assertions:
+
+```
+ID        : "signup-smoke"
+URL       : "https://staging.example.com"
+FakerSeed : "42"
+---
+Goto "/signup"
+Fill "input[name=email]" "{{faker.email}}"
+```
+
+Without `FakerSeed`, values regenerate on every run (including each iteration
+of `--repeat N`).
+
+### Variable interpolation in normal actions
+
+`$var` substitution (previously only in `Always` / `Eventually`) now also works
+in `Fill`, `Click`, selectors, and other action arguments:
+
+```
+Extract "$email" "input[name=email]"
+Goto "/profile"
+Fill "input[name=search]" "$email"
+```
+
+---
+
 ## Property-Based Testing
 
 For robustness testing beyond simple scripts:
@@ -350,9 +401,7 @@ Screenshot "body" "./screenshots/02-after-submit.png"
 |---|---|
 | **No multi-tab support** | All actions run on one page. Tests that open new tabs will lose context. |
 | **No conditions / loops** | The DSL has no `if`, `for`, or branching logic. |
-| **No test data generation** | No Faker-like data generation built in; hardcode or parameterise via URL override. |
 | **Comments must be full-line** | `Click "#btn" # comment` is not valid; the comment breaks parsing. |
-| **Variable interpolation is limited** | `$var` works only in `Always`, `Eventually`, and `Extract`. Not in `Fill` or `Click`. |
 | **Circular `Use` imports not detected** | Avoid `A.basi` using `B.basi` which uses `A.basi`. |
 | **Fuzz has a 30 s hard cap** | Long fuzz counts on complex pages will be cut short. |
 | **Default action timeout is 10 s** | For slow pages, override globally with `-t "30s"`. Max is 300 s. |
@@ -421,8 +470,8 @@ Always "ExpectVisible #app-shell"
 Goto "/login"
 Screenshot "body" "./screenshots/01-login.png"
 
-# Fill credentials
-Fill "#email" "qa@example.com"
+# Fill credentials — faker tokens generate fresh values each run
+Fill "#email" "{{faker.email}}"
 Fill "#password" "test-password-123"
 
 # Submit and wait for redirect

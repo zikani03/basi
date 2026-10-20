@@ -75,6 +75,33 @@ ExpectId "hero-section-brand-heading"
 Screenshot "body" "./data/test-github.png"
 ```
 
+**You can generate fake data for inputs using `{{faker.*}}` tokens**
+
+String arguments to any action accept `{{faker.<type>}}` tokens which are
+replaced with a freshly generated value every time the action runs.
+
+```
+Goto "https://example.com/signup"
+Fill "input[name=email]"    "{{faker.email}}"
+Fill "input[name=name]"     "{{faker.name}}"
+Fill "input[name=username]" "{{faker.username}}"
+Click "button[type=submit]"
+```
+
+Supported types: `email`, `name`, `firstname`, `lastname`, `username`, `phone`,
+`uuid`, `word`, `sentence`, `int`, `number`, `digit`, `date`, `url`, `bool`,
+`company`, `city`, `country`, `zip`, `street`, `price`.
+
+Set `FakerSeed` in frontmatter to make generated values deterministic across
+runs:
+
+```
+ID        : "signup-smoke"
+FakerSeed : "42"
+---
+Fill "input[name=email]" "{{faker.email}}"
+```
+
 **You can setup metadata/configuration for each run in a `frontmatter` section**
 
 ```
