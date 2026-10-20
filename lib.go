@@ -88,6 +88,15 @@ var actions = []string{
 	"Next",
 }
 
+// operandlessActions are actions that are legitimately allowed to appear
+// without any operands (Selector, Arguments, Variable or Number). These are
+// navigation-only actions. Every other action requires at least one operand.
+var operandlessActions = map[string]bool{
+	"GoBack":    true,
+	"GoForward": true,
+	"Refresh":   true,
+}
+
 func lexerActionsFromMap() string {
 	names := make([]string, 0)
 	for _, name := range actions {
@@ -229,5 +238,17 @@ func Parse(filename string, r io.Reader) (*PlaywrightAction, error) {
 	}
 
 	pwAction.Actions = allActions
+
+	// Post-parse validation: every action that is not explicitly navigation-only
+	// must carry at least one operand (Selector, Arguments, Variable or Number).
+	for _, action := range pwAction.Actions {
+		if operandlessActions[action.Action] {
+			continue
+		}
+		if action.Selector == nil && action.Arguments == nil && action.Variable == nil && action.Number == nil {
+			return nil, fmt.Errorf("action %q requires at least one argument", action.Action)
+		}
+	}
+
 	return pwAction, nil
 }

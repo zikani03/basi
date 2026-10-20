@@ -1,19 +1,64 @@
 name: ci
+
 on:
   push:
-    tags: [ "v*" ]
     branches: [ main ]
+    tags: [ "v*" ]
   pull_request:
-    branches: [ "*" ]
+
 jobs:
-  build:
-    name: build
+  build-and-test:
+    name: build and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v6
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          stable: true
-          go-version: '1.25'
-      - uses: actions/checkout@v2
-      - name: run go mod
-        run: go mod tidy && go build -o basi ./cmd/
+          go-version: '1.24'
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        # structtag and composites are disabled because the participle grammar
+        # DSL lives in struct tags and the lexer uses unkeyed struct literals,
+        # both of which these analyzers flag as false positives.
+        run: go vet -structtag=false -composites=false ./...
+
+      - name: Test (parser + core)
+        run: go test ./ ./core/...
+
+  browser-tests:
+    name: browser tests
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    # Browser-dependent tests may reach external sites and can be flaky, so they
+    # run in a separate job that does not block the required build-and-test job.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        run: go run github.com/mxschmitt/playwright-go/cmd/playwright install --with-deps
+
+      - name: Test (browser-dependent)
+        run: go test ./playwright/...
